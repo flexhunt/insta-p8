@@ -3,7 +3,7 @@
 import type React from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Instagram, LayoutDashboard, Zap, Activity, LogOut, Settings, BarChart3, Users } from "lucide-react"
+import { Instagram, LayoutDashboard, Zap, Activity, LogOut, Settings, BarChart3, Users, MessageSquare } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
@@ -44,6 +44,13 @@ export function Sidebar({ className, username = "Demo User", onLogout, onNavigat
           icon={<Zap className="w-4 h-4" />}
           label="Automations"
           active={isActive("/dashboard/automations")}
+          onClick={onNavigate}
+        />
+        <NavItem
+          href="/dashboard/inbox"
+          icon={<MessageSquare className="w-4 h-4" />}
+          label="Inbox"
+          active={isActive("/dashboard/inbox")}
           onClick={onNavigate}
         />
         <NavItem
@@ -103,8 +110,8 @@ function NavItem({
       href={href}
       onClick={onClick}
       className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-medium text-[13px] group relative overflow-hidden ${active
-          ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-          : "text-muted-foreground hover:text-white hover:bg-white/5"
+        ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+        : "text-muted-foreground hover:text-white hover:bg-white/5"
         }`}
     >
       {active && (
