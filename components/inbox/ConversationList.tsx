@@ -8,7 +8,7 @@ import type { Conversation } from "@/types/db"
 interface ConversationListProps {
     userId: string
     selectedId: string | null
-    onSelect: (id: string, username: string) => void
+    onSelect: (id: string, username: string, recipientId: string) => void
 }
 
 export function ConversationList({ userId, selectedId, onSelect }: ConversationListProps) {
@@ -44,7 +44,7 @@ export function ConversationList({ userId, selectedId, onSelect }: ConversationL
     }
 
     return (
-        <div className="flex flex-col h-full border-r border-white/5 bg-black/20 w-[350px]">
+        <div className="flex flex-col h-full border-r border-white/5 bg-black/20 w-full md:w-[350px]">
             <div className="p-4 border-b border-white/5">
                 <h2 className="text-lg font-bold text-white mb-4">Inbox</h2>
                 <div className="relative">
@@ -65,7 +65,7 @@ export function ConversationList({ userId, selectedId, onSelect }: ConversationL
                     conversations.map((conv) => (
                         <div
                             key={conv.id}
-                            onClick={() => onSelect(conv.id, conv.recipient_username)}
+                            onClick={() => onSelect(conv.id, conv.recipient_username, conv.recipient_id.toString())}
                             className={cn(
                                 "p-3 rounded-lg flex items-center gap-3 cursor-pointer transition-colors border border-transparent",
                                 selectedId === conv.id
