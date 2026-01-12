@@ -201,12 +201,26 @@ export async function POST(request: NextRequest) {
 
                         if (!conv) {
                             // Create new conversation
+
+                            // 1. Try to fetch real username first
+                            let realUsername = `cnt_${senderId.slice(0, 5)}...`
+                            try {
+                                const profileUrl = `https://graph.instagram.com/v24.0/${senderId}?fields=username&access_token=${user.access_token}`
+                                const profileRes = await fetch(profileUrl)
+                                const profileData = await profileRes.json()
+                                if (profileData.username) {
+                                    realUsername = profileData.username
+                                }
+                            } catch (e) {
+                                console.error("[v0] Failed to fetch username", e)
+                            }
+
                             const { data: newConv } = await supabase
                                 .from("conversations")
                                 .insert({
                                     user_id: user.id,
                                     recipient_id: senderId,
-                                    recipient_username: `cnt_${senderId.slice(0, 5)}...`, // Placeholder, IG doesn't give username in webhook easily without another API call
+                                    recipient_username: realUsername,
                                     last_message_at: new Date().toISOString()
                                 })
                                 .select("id")
