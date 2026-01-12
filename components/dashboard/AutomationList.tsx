@@ -45,7 +45,7 @@ export function AutomationList({ automations, onDelete, userId }: AutomationList
     fetchMedia()
   }, [userId, automations.length])
 
-  // 2. Helper Component for Rows
+  // 2. Helper Component for Desktop Rows
   const RuleRow = ({ rule, isSpecific = false, index }: { rule: Automation; isSpecific?: boolean; index: number }) => {
     const imageUrl = rule.specific_media_id ? mediaMap[rule.specific_media_id] : null
 
@@ -99,8 +99,8 @@ export function AutomationList({ automations, onDelete, userId }: AutomationList
               </span>
             )}
             <span className={`px-2 py-1 rounded text-[10px] font-medium border ${rule.response_content?.card
-                ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
-                : "bg-slate-700/30 text-slate-300 border-slate-700/50"
+              ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
+              : "bg-slate-700/30 text-slate-300 border-slate-700/50"
               }`}>
               {rule.response_content?.card ? "Rich Card" : "Text Reply"}
             </span>
@@ -124,15 +124,15 @@ export function AutomationList({ automations, onDelete, userId }: AutomationList
     <div className="space-y-8 animate-in fade-in duration-700 slide-in-from-bottom-4">
 
       {/* Search Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
           Active Automations
           <span className="bg-white/10 text-white px-2 py-0.5 rounded-full text-[10px]">{automations.length}</span>
         </h2>
-        <div className="relative group">
+        <div className="relative group w-full md:w-auto">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-purple-400 transition-colors" />
           <input
-            className="bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-xs w-64 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 transition-all text-white placeholder:text-muted-foreground/60 backdrop-blur-sm"
+            className="bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-xs w-full md:w-64 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 transition-all text-white placeholder:text-muted-foreground/60 backdrop-blur-sm"
             placeholder="Search rules..."
           />
         </div>
@@ -154,61 +154,117 @@ export function AutomationList({ automations, onDelete, userId }: AutomationList
         </div>
       ) : (
         <div className="space-y-8">
-          {/* GLOBAL RULES TABLE */}
+          {/* GLOBAL RULES */}
           {globalRules.length > 0 && (
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-blue-400 ml-1">
                 <Globe className="w-4 h-4" />
                 Global Rules
               </div>
-              <div className="rounded-2xl border border-white/5 overflow-hidden bg-black/40 backdrop-blur-md shadow-2xl">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-white/[0.03] border-b border-white/5 text-muted-foreground uppercase text-[10px] tracking-wider">
+              {/* Desktop Table */}
+              <div className="hidden md:block rounded-xl overflow-hidden border border-white/5 shadow-2xl bg-black/40 backdrop-blur-md">
+                <table className="w-full text-left">
+                  <thead className="bg-white/[0.02] text-xs uppercase text-muted-foreground font-semibold">
                     <tr>
-                      <th className="px-6 py-4 font-bold">Rule Name</th>
-                      <th className="px-6 py-4 font-bold">Trigger</th>
-                      <th className="px-6 py-4 font-bold">Config</th>
-                      <th className="px-6 py-4 font-bold text-right">Action</th>
+                      <th className="px-6 py-4">Trigger</th>
+                      <th className="px-6 py-4">Keyword</th>
+                      <th className="px-6 py-4">Response</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5">
+                  <tbody>
                     {globalRules.map((rule, idx) => (
                       <RuleRow key={rule.id} rule={rule} index={idx} />
                     ))}
                   </tbody>
                 </table>
               </div>
+              {/* Mobile Cards */}
+              <div className="md:hidden space-y-3">
+                {globalRules.map((rule, idx) => (
+                  <MobileRuleCard key={rule.id} rule={rule} onDelete={onDelete} />
+                ))}
+              </div>
             </div>
           )}
 
-          {/* POST SPECIFIC RULES TABLE */}
+          {/* SPECIFIC RULES */}
           {postSpecificRules.length > 0 && (
             <div className="space-y-4">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-orange-400 ml-1">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-pink-400 ml-1">
                 <MapPin className="w-4 h-4" />
-                Specific Post Rules
+                Post Specific
               </div>
-              <div className="rounded-2xl border border-white/5 overflow-hidden bg-black/40 backdrop-blur-md shadow-2xl">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-white/[0.03] border-b border-white/5 text-muted-foreground uppercase text-[10px] tracking-wider">
+              {/* Desktop Table */}
+              <div className="hidden md:block rounded-xl overflow-hidden border border-white/5 shadow-2xl bg-black/40 backdrop-blur-md">
+                <table className="w-full text-left">
+                  <thead className="bg-white/[0.02] text-xs uppercase text-muted-foreground font-semibold">
                     <tr>
-                      <th className="px-6 py-4 font-bold">Attached Post</th>
-                      <th className="px-6 py-4 font-bold">Trigger</th>
-                      <th className="px-6 py-4 font-bold">Config</th>
-                      <th className="px-6 py-4 font-bold text-right">Action</th>
+                      <th className="px-6 py-4">Post & Trigger</th>
+                      <th className="px-6 py-4">Keyword</th>
+                      <th className="px-6 py-4">Response</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5">
+                  <tbody>
                     {postSpecificRules.map((rule, idx) => (
-                      <RuleRow key={rule.id} rule={rule} isSpecific={true} index={idx} />
+                      <RuleRow key={rule.id} rule={rule} isSpecific index={idx} />
                     ))}
                   </tbody>
                 </table>
+              </div>
+              {/* Mobile Cards */}
+              <div className="md:hidden space-y-3">
+                {postSpecificRules.map((rule, idx) => (
+                  <MobileRuleCard key={rule.id} rule={rule} onDelete={onDelete} isSpecific mediaUrl={mediaMap[rule.specific_media_id || ""]} />
+                ))}
               </div>
             </div>
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+function MobileRuleCard({ rule, onDelete, isSpecific, mediaUrl }: { rule: Automation, onDelete: (id: string) => void, isSpecific?: boolean, mediaUrl?: string }) {
+  return (
+    <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col gap-3">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          {isSpecific ? (
+            <div className="h-10 w-10 rounded-lg overflow-hidden bg-white/5 shrink-0 border border-white/10">
+              {mediaUrl ? (
+                <img src={mediaUrl} alt="Post" className="h-full w-full object-cover" />
+              ) : (
+                <Instagram className="w-5 h-5 text-white/20 m-auto mt-2.5" />
+              )}
+            </div>
+          ) : (
+            <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center border border-blue-500/20 text-blue-400">
+              <Globe className="w-5 h-5" />
+            </div>
+          )}
+          <div>
+            <p className="font-semibold text-sm text-white">{rule.name}</p>
+            <p className="text-[10px] text-muted-foreground">{isSpecific ? "Post Specific" : "Global Rule"}</p>
+          </div>
+        </div>
+        <Button variant="ghost" size="icon" onClick={() => onDelete(rule.id)} className="h-8 w-8 text-muted-foreground hover:text-red-400">
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <div className="bg-black/20 rounded-lg p-2 border border-white/5">
+          <span className="block text-[10px] uppercase text-muted-foreground font-bold mb-1">Trigger</span>
+          <code className="text-purple-300 font-mono">{rule.trigger_value}</code>
+        </div>
+        <div className="bg-black/20 rounded-lg p-2 border border-white/5">
+          <span className="block text-[10px] uppercase text-muted-foreground font-bold mb-1">Response</span>
+          <span className="text-neutral-300">{rule.response_content?.card ? "Rich Card" : "Text Reply"}</span>
+        </div>
+      </div>
     </div>
   )
 }
