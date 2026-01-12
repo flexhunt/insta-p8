@@ -157,4 +157,3 @@ function StatCard({ title, value, trend, icon }: { title: string, value: string,
         </Card>
     )
 }
-
