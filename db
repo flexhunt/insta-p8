@@ -85,3 +85,13 @@ ALTER TABLE public.messages
 
 ALTER TABLE public.messages
   ADD CONSTRAINT messages_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+-- Table: public.ice_breakers
+CREATE TABLE public.ice_breakers (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id bigint NOT NULL,
+  question text NOT NULL,
+  response text NOT NULL,
+  is_active boolean DEFAULT true,
+  created_at timestamptz DEFAULT CURRENT_TIMESTAMP
+);
