@@ -61,9 +61,9 @@ export async function POST(request: NextRequest) {
 
         if (user && user.access_token && user.page_id) {
             // Construct IG Payload
-            const ice_breakers = iceBreakers.map((ib: any) => ({
+            const ice_breakers = inserted.map((ib: any) => ({
                 question: ib.question,
-                payload: `ICE_BREAKER_${Math.random().toString(36).substring(7)}` // Random payload
+                payload: `ICE_BREAKER_${ib.id}`
             }))
 
             // We need to SAVE/MAP this payload to the response? 

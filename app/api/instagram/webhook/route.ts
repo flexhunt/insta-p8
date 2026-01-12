@@ -257,6 +257,22 @@ export async function POST(request: NextRequest) {
                         if (triggerValue.startsWith('UNLOCK_CONTENT_')) {
                             const ruleId = triggerValue.replace('UNLOCK_CONTENT_', '')
                             match = automations.find(a => a.id === ruleId)
+                        } else if (triggerValue.startsWith('ICE_BREAKER_')) {
+                            // Handle Ice Breaker
+                            const iceBreakerId = triggerValue.replace('ICE_BREAKER_', '')
+                            const { data: ibMatches } = await supabase
+                                .from("ice_breakers")
+                                .select("*")
+                                .eq("id", iceBreakerId)
+                                .single()
+
+                            if (ibMatches) {
+                                // Construct a temporary match object to reuse the sending logic
+                                match = {
+                                    name: "Ice Breaker: " + ibMatches.question,
+                                    response_content: { message: ibMatches.response }
+                                }
+                            }
                         } else {
                             match = automations.find(a => a.trigger_type === "postback" && a.trigger_value === triggerValue)
                         }
