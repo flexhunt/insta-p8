@@ -125,16 +125,32 @@ export async function POST(request: NextRequest) {
                         const commentText = change.value.text.toLowerCase().trim()
                         const senderId = change.value.from.id
 
+                        const mediaId = change.value.media.id
+
                         // Safety check for self-reply
                         if (senderId === webhookId || senderId === user.business_account_id || senderId === user.page_id) continue
 
-                        const match = automations.find(a =>
+                        // ============================================================
+                        // 🧠 SMART MATCHING LOGIC
+                        // ============================================================
+                        // Priority 1: Specific Post Match
+                        let match = automations.find(a =>
+                            a.specific_media_id === mediaId &&
                             a.trigger_type === "keyword" &&
                             a.trigger_value.split(",").some((k: string) => new RegExp(`\\b${k.trim()}\\b`, "i").test(commentText))
                         )
 
+                        // Priority 2: Global Match (Only if no specific match found)
+                        if (!match) {
+                            match = automations.find(a =>
+                                !a.specific_media_id && // Must be global
+                                a.trigger_type === "keyword" &&
+                                a.trigger_value.split(",").some((k: string) => new RegExp(`\\b${k.trim()}\\b`, "i").test(commentText))
+                            )
+                        }
+
                         if (match) {
-                            console.log(`[v0] ✅ Comment Match: "${match.name}"`)
+                            console.log(`[v0] ✅ Comment Match: "${match.name}" (ID: ${match.id})`)
                             const content = match.response_content
                             const replies = ["Check your DMs! 📥", "Sent! 🔥", "Check inbox! ✨"]
                             const randomReply = replies[Math.floor(Math.random() * replies.length)]
@@ -147,10 +163,32 @@ export async function POST(request: NextRequest) {
 
                             // Private Reply
                             let apiBody: any = { recipient: { comment_id: commentId } }
-                            if (content.message) apiBody.message = { text: content.message }
-                            else if (content.card) {
-                                const link = content.card.buttons?.[0]?.url || ""
-                                apiBody.message = { text: `${content.card.title}\n${content.card.subtitle || ""}\n${link}` }
+
+                            if (content.message) {
+                                // Plain Text
+                                apiBody.message = { text: content.message }
+                            } else if (content.card) {
+                                // Rich Card / Generic Template
+                                const card = content.card
+                                const apiButtons = card.buttons.map((b: any) => ({
+                                    type: b.type,
+                                    title: b.title,
+                                    url: b.url || undefined,
+                                    payload: b.payload || undefined,
+                                }))
+                                const element: any = { title: card.title, buttons: apiButtons }
+                                if (card.subtitle) element.subtitle = card.subtitle
+                                if (card.image_url && card.image_url.startsWith("http")) element.image_url = card.image_url
+
+                                apiBody.message = {
+                                    attachment: {
+                                        type: "template",
+                                        payload: {
+                                            template_type: "generic",
+                                            elements: [element]
+                                        }
+                                    }
+                                }
                             }
 
                             await fetch(
