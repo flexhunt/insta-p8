@@ -264,6 +264,7 @@ export async function POST(request: NextRequest) {
                                 .from("ice_breakers")
                                 .select("*")
                                 .eq("id", iceBreakerId)
+                                .eq("user_id", user.id)
                                 .single()
 
                             if (ibMatches) {
