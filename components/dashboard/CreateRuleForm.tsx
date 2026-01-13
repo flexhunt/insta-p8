@@ -26,6 +26,7 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
   const [type, setType] = useState<"text" | "card">("text")
   const [checkFollow, setCheckFollow] = useState(false)
   const [replyToAll, setReplyToAll] = useState(false)
+  const [storyTriggerType, setStoryTriggerType] = useState<'mention' | 'reaction' | 'reply'>('mention') // NEW for stories
 
   // Content State
   const [messageText, setMessageText] = useState("")
@@ -139,9 +140,11 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
         body: JSON.stringify({
           userId,
           name,
-          trigger_source: triggerSource,  // NEW
-          trigger_type: replyToAll ? "reply_all" : "keyword",
-          trigger_value: replyToAll ? "ALL_COMMENTS" : triggers.join(", "),
+          trigger_source: triggerSource,
+          trigger_type: replyToAll ? "reply_all" : (triggerSource === 'story' ? storyTriggerType : "keyword"),
+          trigger_value: replyToAll ? "ALL_COMMENTS" :
+            (triggerSource === 'story' && storyTriggerType === 'mention') ? "ALL_MENTIONS" :
+              triggers.length > 0 ? triggers.join(", ") : "ALL",
           content,
           specific_media_id: selectedReel?.id || null,
         }),
@@ -176,12 +179,16 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
       {/* Context-aware header */}
       <div className="mb-4">
         <h3 className="text-lg font-bold text-white">
-          {triggerSource === 'comment' ? '💬 Create Comment Automation' : '📨 Create DM Automation'}
+          {triggerSource === 'comment' ? '💬 Create Comment Automation' :
+            triggerSource === 'dm' ? '📨 Create DM Automation' :
+              '✨ Create Story Automation'}
         </h3>
         <p className="text-sm text-neutral-400">
           {triggerSource === 'comment'
             ? 'Automatically reply to comments on your posts with custom messages'
-            : 'Automatically reply to Instagram DMs with smart keyword triggers'}
+            : triggerSource === 'dm'
+              ? 'Automatically reply to Instagram DMs with smart keyword triggers'
+              : 'Automatically reply to story mentions, reactions, and replies'}
         </p>
       </div>
 
@@ -198,6 +205,53 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
           </div>
         </div>
 
+        {/* Story Trigger Type Selector - only for stories */}
+        {triggerSource === 'story' && (
+          <div className="space-y-2">
+            <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Story Trigger Type</Label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setStoryTriggerType('mention')}
+                className={`p-3 rounded-lg border transition-all ${storyTriggerType === 'mention'
+                  ? 'border-purple-500 bg-purple-500/20 text-purple-300'
+                  : 'border-white/10 bg-black/20 text-neutral-400 hover:bg-white/5'
+                  }`}
+              >
+                <div className="text-2xl mb-1">📣</div>
+                <div className="text-xs font-semibold">Mentions</div>
+                <div className="text-[10px] opacity-70">@username</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStoryTriggerType('reaction')}
+                className={`p-3 rounded-lg border transition-all ${storyTriggerType === 'reaction'
+                  ? 'border-pink-500 bg-pink-500/20 text-pink-300'
+                  : 'border-white/10 bg-black/20 text-neutral-400 hover:bg-white/5'
+                  }`}
+              >
+                <div className="text-2xl mb-1">❤️</div>
+                <div className="text-xs font-semibold">Reactions</div>
+                <div className="text-[10px] opacity-70">Emoji</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStoryTriggerType('reply')}
+                className={`p-3 rounded-lg border transition-all ${storyTriggerType === 'reply'
+                  ? 'border-blue-500 bg-blue-500/20 text-blue-300'
+                  : 'border-white/10 bg-black/20 text-neutral-400 hover:bg-white/5'
+                  }`}
+              >
+                <div className="text-2xl mb-1">💬</div>
+                <div className="text-xs font-semibold">Replies</div>
+                <div className="text-[10px] opacity-70">DM reply</div>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Only show Reply-to-All for COMMENTS */}
         {triggerSource === 'comment' && (
           <div className="flex items-center gap-3 p-4 rounded-xl border border-pink-500/20 bg-gradient-to-r from-pink-500/5 to-transparent">
@@ -213,17 +267,26 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
           </div>
         )}
 
-        {/* Conditional trigger input - hide for reply-all */}
-        {!(triggerSource === 'comment' && replyToAll) && (
+        {/* Conditional trigger input - hide for reply-all and story mentions */}
+        {!(triggerSource === 'comment' && replyToAll) && !(triggerSource === 'story' && storyTriggerType === 'mention') && (
           <div className="space-y-2">
             <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">
-              Trigger Keywords
-              <span className="text-muted-foreground/60 font-normal ml-2">(Press Enter or comma to add)</span>
+              {triggerSource === 'story' && storyTriggerType === 'reaction' ? 'Reaction Emoji (optional)' : 'Trigger Keywords'}
+              <span className="text-muted-foreground/60 font-normal ml-2">
+                {triggerSource === 'story' && storyTriggerType === 'reaction'
+                  ? '(Leave empty for all reactions)'
+                  : '(Press Enter or comma to add)'}
+              </span>
             </Label>
             <TagInput
               value={triggers}
               onChange={setTriggers}
-              placeholder={triggerSource === 'comment' ? 'e.g. hello, info, price' : 'e.g. hello, hi, menu'}
+              placeholder={
+                triggerSource === 'comment' ? 'e.g. hello, info, price' :
+                  triggerSource === 'story' && storyTriggerType === 'reaction' ? 'e.g. ❤️, 🔥, 👍' :
+                    triggerSource === 'story' ? 'e.g. yes, interested, tell me more' :
+                      'e.g. hello, hi, menu'
+              }
             />
           </div>
         )}
