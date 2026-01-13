@@ -178,34 +178,37 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
   const ReelPicker = ({ userId, onSelect, filterType }: { userId: string; onSelect: (reel: any) => void; filterType?: 'story' | 'all' }) => {
     if (loadingReels) {
       return (
-        <div className="absolute top-full left-0 right-0 mt-2 p-4 bg-black/95 border border-white/20 rounded-xl text-center z-50">
-          <p className="text-neutral-400">Loading media...</p>
+        <div className="absolute top-full left-0 right-0 mt-2 p-4 bg-black border border-white/20 rounded-lg text-center z-50 shadow-2xl">
+          <p className="text-neutral-400 text-sm">Loading media...</p>
         </div>
       )
     }
 
-    // Filter based on type
+    // Strict Filter: If story mode, ONLY show stories.
     const filteredReels = filterType === 'story'
       ? reels.filter((r: any) => r.media_type === 'STORY' || r.media_product_type === 'STORY')
       : reels
 
     if (filteredReels.length === 0) {
       return (
-        <div className="absolute top-full left-0 right-0 mt-2 p-4 bg-black/95 border border-white/20 rounded-xl text-center z-50">
-          <p className="text-neutral-400">
-            {filterType === 'story' ? 'No active stories found' : 'No posts/reels found'}
+        <div className="absolute top-full left-0 right-0 mt-2 p-4 bg-black border border-white/20 rounded-lg text-center z-50 shadow-2xl">
+          <p className="text-neutral-500 text-sm">
+            {filterType === 'story' ? 'No active stories found' : 'No posts found'}
           </p>
         </div>
       )
     }
 
     return (
-      <div className="absolute top-full left-0 right-0 mt-2 max-h-64 overflow-y-auto bg-black/95 border border-white/20 rounded-xl z-50">
+      <div className="absolute top-full left-0 right-0 mt-2 max-h-64 overflow-y-auto bg-black border border-white/20 rounded-lg z-50 shadow-2xl scrollbar-hide">
         {filteredReels.map((reel: any) => {
           const isStory = reel.media_type === 'STORY' || reel.media_product_type === 'STORY'
-          const mediaTypeLabel = isStory ? '📖 Story' :
-            reel.media_type === 'VIDEO' ? '🎬 Reel' :
-              reel.media_type === 'CAROUSEL_ALBUM' ? '🎠 Carousel' : '📷 Post'
+          // Double check to hide non-stories in story mode
+          if (filterType === 'story' && !isStory) return null;
+
+          const mediaTypeLabel = isStory ? 'Story' :
+            reel.media_type === 'VIDEO' ? 'Reel' :
+              reel.media_type === 'CAROUSEL_ALBUM' ? 'Carousel' : 'Post'
 
           const timestamp = reel.timestamp ? new Date(reel.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
 
@@ -214,32 +217,33 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
               key={reel.id}
               type="button"
               onClick={() => onSelect(reel)}
-              className="w-full p-3 flex items-center gap-3 hover:bg-white/10 transition-colors text-left border-b border-white/5 last:border-0"
+              className="w-full p-3 flex items-center gap-3 hover:bg-white/10 transition-colors text-left border-b border-white/10 last:border-0"
             >
-              {reel.image_url && (
+              {reel.image_url ? (
                 <img
                   src={reel.image_url}
                   alt="Media thumbnail"
-                  className="w-14 h-14 rounded object-cover flex-shrink-0"
+                  className="w-10 h-10 rounded-sm object-cover flex-shrink-0 opacity-80"
                 />
+              ) : (
+                <div className="w-10 h-10 rounded-sm bg-white/10 flex items-center justify-center">
+                  <Film className="w-4 h-4 text-neutral-500" />
+                </div>
               )}
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-white truncate font-medium">
-                  {reel.caption || 'Untitled'}
+                  {reel.caption || 'Untitled Media'}
                 </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-neutral-400">{mediaTypeLabel}</span>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-[10px] uppercase tracking-wider text-neutral-500">{mediaTypeLabel}</span>
                   {timestamp && (
                     <>
-                      <span className="text-neutral-600">•</span>
-                      <span className="text-xs text-neutral-500">{timestamp}</span>
+                      <span className="text-neutral-700">•</span>
+                      <span className="text-[10px] text-neutral-600">{timestamp}</span>
                     </>
                   )}
                   {isStory && (
-                    <>
-                      <span className="text-neutral-600">•</span>
-                      <span className="text-xs text-pink-400">24h</span>
-                    </>
+                    <span className="ml-auto text-[10px] border border-white/20 px-1 rounded text-white/70">24h</span>
                   )}
                 </div>
               </div>
@@ -253,18 +257,19 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
   return (
     <div className="space-y-6">
       {/* Context-aware header */}
-      <div className="mb-4">
-        <h3 className="text-lg font-bold text-white">
-          {triggerSource === 'comment' ? '💬 Create Comment Automation' :
-            triggerSource === 'dm' ? '📨 Create DM Automation' :
-              '✨ Create Story Automation'}
+      {/* Context-aware header */}
+      <div className="mb-6">
+        <h3 className="text-xl font-medium text-white tracking-tight">
+          {triggerSource === 'comment' ? 'Comment Automation' :
+            triggerSource === 'dm' ? 'DM Automation' :
+              'Story Automation'}
         </h3>
-        <p className="text-sm text-neutral-400">
+        <p className="text-xs text-neutral-500 mt-1">
           {triggerSource === 'comment'
-            ? 'Automatically reply to comments on your posts with custom messages'
+            ? 'Automatically reply to comments on your posts.'
             : triggerSource === 'dm'
-              ? 'Automatically reply to Instagram DMs with smart keyword triggers'
-              : 'Automatically reply to story mentions, reactions, and replies'}
+              ? 'Automatically reply to hidden messages and DMs.'
+              : 'Engage with users who mention or react to your stories.'}
         </p>
       </div>
 
@@ -283,46 +288,43 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
 
         {/* Story Trigger Type Selector - only for stories */}
         {triggerSource === 'story' && (
-          <div className="space-y-2">
-            <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Story Trigger Type</Label>
-            <div className="grid grid-cols-3 gap-2">
+          <div className="space-y-3">
+            <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Trigger Type</Label>
+            <div className="grid grid-cols-3 gap-3">
               <button
                 type="button"
                 onClick={() => setStoryTriggerType('mention')}
-                className={`p-3 rounded-lg border transition-all ${storyTriggerType === 'mention'
-                  ? 'border-purple-500 bg-purple-500/20 text-purple-300'
-                  : 'border-white/10 bg-black/20 text-neutral-400 hover:bg-white/5'
+                className={`p-4 rounded-lg border transition-all flex flex-col items-center justify-center gap-2 ${storyTriggerType === 'mention'
+                  ? 'border-white bg-white text-black'
+                  : 'border-white/10 bg-black/40 text-neutral-400 hover:bg-white/5'
                   }`}
               >
-                <div className="text-2xl mb-1">📣</div>
-                <div className="text-xs font-semibold">Mentions</div>
-                <div className="text-[10px] opacity-70">@username</div>
+                <span className="text-lg">@</span>
+                <span className="text-xs font-semibold">Mentions</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setStoryTriggerType('reaction')}
-                className={`p-3 rounded-lg border transition-all ${storyTriggerType === 'reaction'
-                  ? 'border-pink-500 bg-pink-500/20 text-pink-300'
-                  : 'border-white/10 bg-black/20 text-neutral-400 hover:bg-white/5'
+                className={`p-4 rounded-lg border transition-all flex flex-col items-center justify-center gap-2 ${storyTriggerType === 'reaction'
+                  ? 'border-white bg-white text-black'
+                  : 'border-white/10 bg-black/40 text-neutral-400 hover:bg-white/5'
                   }`}
               >
-                <div className="text-2xl mb-1">❤️</div>
-                <div className="text-xs font-semibold">Reactions</div>
-                <div className="text-[10px] opacity-70">Emoji</div>
+                <span className="text-lg">❤️</span>
+                <span className="text-xs font-semibold">Reactions</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setStoryTriggerType('reply')}
-                className={`p-3 rounded-lg border transition-all ${storyTriggerType === 'reply'
-                  ? 'border-blue-500 bg-blue-500/20 text-blue-300'
-                  : 'border-white/10 bg-black/20 text-neutral-400 hover:bg-white/5'
+                className={`p-4 rounded-lg border transition-all flex flex-col items-center justify-center gap-2 ${storyTriggerType === 'reply'
+                  ? 'border-white bg-white text-black'
+                  : 'border-white/10 bg-black/40 text-neutral-400 hover:bg-white/5'
                   }`}
               >
-                <div className="text-2xl mb-1">💬</div>
-                <div className="text-xs font-semibold">Replies</div>
-                <div className="text-[10px] opacity-70">DM reply</div>
+                <span className="text-lg">💬</span>
+                <span className="text-xs font-semibold">Replies</span>
               </button>
             </div>
           </div>
@@ -330,14 +332,14 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
 
         {/* Only show Reply-to-All for COMMENTS */}
         {triggerSource === 'comment' && (
-          <div className="flex items-center gap-3 p-4 rounded-xl border border-pink-500/20 bg-gradient-to-r from-pink-500/5 to-transparent">
+          <div className="flex items-center gap-3 p-4 rounded-lg border border-white/10 bg-white/5">
             <Switch checked={replyToAll} onCheckedChange={setReplyToAll} id="reply-all" />
             <div className="flex-1">
-              <Label htmlFor="reply-all" className="text-sm font-semibold text-pink-300 cursor-pointer">
-                Reply to ALL Comments 🔥
+              <Label htmlFor="reply-all" className="text-sm font-medium text-white cursor-pointer">
+                Reply to ALL Comments
               </Label>
               <p className="text-xs text-neutral-500 mt-0.5">
-                Send this response to every comment on a specific post (no keyword needed)
+                Respond to every comment on a specific post automatically.
               </p>
             </div>
           </div>
@@ -367,10 +369,10 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
           </div>
         )}
 
-        <div className="flex items-center gap-3 p-4 rounded-xl border border-yellow-500/20 bg-gradient-to-r from-yellow-500/5 to-transparent">
+        <div className="flex items-center gap-3 p-4 rounded-lg border border-white/10 bg-white/5">
           <Switch checked={checkFollow} onCheckedChange={setCheckFollow} id="follow-gate" />
           <div>
-            <Label htmlFor="follow-gate" className="text-sm font-bold text-yellow-500 flex items-center gap-2 cursor-pointer">
+            <Label htmlFor="follow-gate" className="text-sm font-medium text-white flex items-center gap-2 cursor-pointer">
               <Lock className="w-3.5 h-3.5" /> Follow Gate
             </Label>
             <p className="text-[10px] text-muted-foreground mt-0.5">User must follow you to see the reply.</p>
@@ -478,8 +480,8 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
 
           <Tabs value={type} onValueChange={(v: any) => setType(v)} className="w-full">
             <TabsList className="grid w-full grid-cols-2 bg-white/5 p-1 rounded-lg">
-              <TabsTrigger value="text" className="data-[state=active]:bg-purple-500 data-[state=active]:text-white">Simple Text</TabsTrigger>
-              <TabsTrigger value="card" className="data-[state=active]:bg-indigo-500 data-[state=active]:text-white">Rich Card</TabsTrigger>
+              <TabsTrigger value="text" className="data-[state=active]:bg-white data-[state=active]:text-black transition-all">Text Response</TabsTrigger>
+              <TabsTrigger value="card" className="data-[state=active]:bg-white data-[state=active]:text-black transition-all">Card Response</TabsTrigger>
             </TabsList>
 
             <TabsContent value="text" className="pt-4 animate-in fade-in slide-in-from-left-2 duration-300">

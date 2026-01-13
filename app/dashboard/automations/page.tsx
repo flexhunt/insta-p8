@@ -56,31 +56,31 @@ export default function AutomationsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-black to-blue-900 p-4 md:p-8">
+        <div className="min-h-screen bg-black p-4 md:p-8">
             <div className="max-w-6xl mx-auto space-y-6">
                 {/* Header */}
-                <div className="flex flex-col gap-2">
-                    <h1 className="text-4xl font-black bg-gradient-to-r from-purple-400 via-pink-500 to-blue-500 bg-clip-text text-transparent">
+                <div className="flex flex-col gap-1">
+                    <h1 className="text-3xl font-bold text-white tracking-tight">
                         Automation Center
                     </h1>
-                    <p className="text-neutral-400 text-sm">
-                        Automate Instagram comments and DMs with smart triggers
+                    <p className="text-neutral-500 text-sm">
+                        Manage your automated responses and triggers.
                     </p>
                 </div>
 
                 {/* Tab Navigation */}
-                <div className="flex gap-2 border-b border-white/10 pb-2 overflow-x-auto">
+                <div className="flex gap-1 border-b border-white/10 pb-0 overflow-x-auto">
                     <button
                         onClick={() => setActiveTab('comment')}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg font-semibold transition-all whitespace-nowrap ${activeTab === 'comment'
-                            ? 'bg-purple-500/20 text-purple-300 border-b-2 border-purple-400'
-                            : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                        className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all whitespace-nowrap text-sm font-medium ${activeTab === 'comment'
+                            ? 'border-white text-white'
+                            : 'border-transparent text-neutral-500 hover:text-white hover:bg-white/5'
                             }`}
                     >
                         <MessageCircle className="w-4 h-4" />
                         Comments
                         {counts.comment > 0 && (
-                            <span className="bg-purple-500/30 text-purple-200 text-xs px-2 py-0.5 rounded-full">
+                            <span className="bg-white/10 text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1">
                                 {counts.comment}
                             </span>
                         )}
@@ -88,15 +88,15 @@ export default function AutomationsPage() {
 
                     <button
                         onClick={() => setActiveTab('dm')}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg font-semibold transition-all whitespace-nowrap ${activeTab === 'dm'
-                            ? 'bg-blue-500/20 text-blue-300 border-b-2 border-blue-400'
-                            : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                        className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all whitespace-nowrap text-sm font-medium ${activeTab === 'dm'
+                            ? 'border-white text-white'
+                            : 'border-transparent text-neutral-500 hover:text-white hover:bg-white/5'
                             }`}
                     >
                         <Send className="w-4 h-4" />
                         DMs
                         {counts.dm > 0 && (
-                            <span className="bg-blue-500/30 text-blue-200 text-xs px-2 py-0.5 rounded-full">
+                            <span className="bg-white/10 text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1">
                                 {counts.dm}
                             </span>
                         )}
@@ -104,15 +104,15 @@ export default function AutomationsPage() {
 
                     <button
                         onClick={() => setActiveTab('story')}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg font-semibold transition-all whitespace-nowrap ${activeTab === 'story'
-                            ? 'bg-pink-500/20 text-pink-300 border-b-2 border-pink-400'
-                            : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                        className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all whitespace-nowrap text-sm font-medium ${activeTab === 'story'
+                            ? 'border-white text-white'
+                            : 'border-transparent text-neutral-500 hover:text-white hover:bg-white/5'
                             }`}
                     >
                         <Sparkles className="w-4 h-4" />
                         Stories
                         {counts.story > 0 && (
-                            <span className="bg-pink-500/30 text-pink-200 text-xs px-2 py-0.5 rounded-full">
+                            <span className="bg-white/10 text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1">
                                 {counts.story}
                             </span>
                         )}
@@ -122,7 +122,7 @@ export default function AutomationsPage() {
                 {/* Tab Content */}
                 <>
                     {/* Create Rule Form */}
-                    <Card className="p-6 bg-black/40 backdrop-blur border-white/10">
+                    <Card className="p-6 bg-black border border-white/10 shadow-none">
                         <CreateRuleForm
                             userId={userId}
                             triggerSource={activeTab}
@@ -132,13 +132,13 @@ export default function AutomationsPage() {
 
                     {/* Ice Breakers (DM only) */}
                     {activeTab === 'dm' && (
-                        <Card className="p-6 bg-black/40 backdrop-blur border-white/10">
+                        <Card className="p-6 bg-black border border-white/10 shadow-none">
                             <IceBreakers userId={userId} />
                         </Card>
                     )}
 
                     {/* Automation List */}
-                    <Card className="p-6 bg-black/40 backdrop-blur border-white/10">
+                    <Card className="p-6 bg-black border border-white/10 shadow-none">
                         {isLoading ? (
                             <div className="text-center py-12 text-neutral-400">Loading automations...</div>
                         ) : (
