@@ -88,7 +88,10 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
       toast.error("Missing Logic Name", { description: "Please name your automation rule." })
       return
     }
-    if (!replyToAll && triggers.length === 0) {
+    // Validation: Triggers
+    const isStoryMentionOrReaction = triggerSource === 'story' && (storyTriggerType === 'mention' || storyTriggerType === 'reaction')
+
+    if (!replyToAll && !isStoryMentionOrReaction && triggers.length === 0) {
       toast.error("Missing Trigger", { description: "Please enter at least one keyword trigger." })
       return
     }
@@ -144,7 +147,8 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
           trigger_type: replyToAll ? "reply_all" : (triggerSource === 'story' ? storyTriggerType : "keyword"),
           trigger_value: replyToAll ? "ALL_COMMENTS" :
             (triggerSource === 'story' && storyTriggerType === 'mention') ? "ALL_MENTIONS" :
-              triggers.length > 0 ? triggers.join(", ") : "ALL",
+              (triggerSource === 'story' && storyTriggerType === 'reaction' && triggers.length === 0) ? "ALL_REACTIONS" :
+                triggers.length > 0 ? triggers.join(", ") : "ALL",
           content,
           specific_media_id: selectedReel?.id || null,
         }),
@@ -186,7 +190,7 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
 
     // Strict Filter: If story mode, ONLY show stories.
     const filteredReels = filterType === 'story'
-      ? reels.filter((r: any) => r.media_type === 'STORY' || r.media_product_type === 'STORY')
+      ? reels.filter((r: any) => r.media_type === 'STORY' || r.media_product_type === 'STORY' || r.media_type === 'story')
       : reels
 
     if (filteredReels.length === 0) {
