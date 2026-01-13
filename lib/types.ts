@@ -29,8 +29,9 @@ export interface MediaSelection {
 export interface Automation {
   id: string
   name: string
+  trigger_source: 'comment' | 'dm' | 'story'  // NEW: Where the automation triggers
   trigger_value: string
-  trigger_type: string
+  trigger_type: 'keyword' | 'postback' | 'reply_all'  // Simplified types
   response_content: any
   is_active: boolean
   created_at: string

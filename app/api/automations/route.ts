@@ -26,10 +26,15 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, name, trigger_type, trigger_value, content, specific_media_id } = await request.json()
+    const { userId, name, trigger_source, trigger_type, trigger_value, content, specific_media_id } = await request.json()
 
-    if (!userId || !name || !trigger_value || !content) {
+    if (!userId || !name || !trigger_value || !content || !trigger_source) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 })
+    }
+
+    // Validate trigger_source
+    if (!['comment', 'dm', 'story'].includes(trigger_source)) {
+      return NextResponse.json({ error: "Invalid trigger source" }, { status: 400 })
     }
 
     const supabase = await getSupabaseServerClient()
@@ -45,7 +50,8 @@ export async function POST(request: NextRequest) {
       .insert({
         user_id: userId,
         name,
-        trigger_type,
+        trigger_source,
+        trigger_type: trigger_type || "keyword",
         trigger_value: finalTriggerValue,
         response_type: "pro",
         response_content: content,
@@ -79,23 +85,35 @@ export async function DELETE(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const { id, name, trigger_type, trigger_value, content, specific_media_id } = await request.json()
+    const { id, name, trigger_source, trigger_type, trigger_value, content, specific_media_id } = await request.json()
 
     if (!id || !name || !trigger_value || !content) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 })
     }
 
+    // Validate trigger_source if provided
+    if (trigger_source && !['comment', 'dm', 'story'].includes(trigger_source)) {
+      return NextResponse.json({ error: "Invalid trigger source" }, { status: 400 })
+    }
+
     const supabase = await getSupabaseServerClient()
+
+    const updateData: any = {
+      name,
+      trigger_type: trigger_type || "keyword",
+      trigger_value: trigger_value.toLowerCase(),
+      response_content: content,
+      specific_media_id: specific_media_id || null,
+    }
+
+    // Only update trigger_source if provided
+    if (trigger_source) {
+      updateData.trigger_source = trigger_source
+    }
 
     const { data, error } = await supabase
       .from("automations")
-      .update({
-        name,
-        trigger_type: trigger_type || "keyword",
-        trigger_value: trigger_value.toLowerCase(),
-        response_content: content,
-        specific_media_id: specific_media_id || null,
-      })
+      .update(updateData)
       .eq("id", id)
       .select()
       .single()

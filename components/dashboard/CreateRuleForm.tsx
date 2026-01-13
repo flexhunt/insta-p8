@@ -16,10 +16,11 @@ import { toast } from "sonner"
 
 interface CreateRuleFormProps {
   userId: string
+  triggerSource: 'comment' | 'dm' | 'story'  // NEW: Passed from tab context
   onSuccess: () => void
 }
 
-export function CreateRuleForm({ userId, onSuccess }: CreateRuleFormProps) {
+export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleFormProps) {
   const [name, setName] = useState("")
   const [triggers, setTriggers] = useState<string[]>([])
   const [type, setType] = useState<"text" | "card">("text")
@@ -138,7 +139,8 @@ export function CreateRuleForm({ userId, onSuccess }: CreateRuleFormProps) {
         body: JSON.stringify({
           userId,
           name,
-          trigger_type: replyToAll ? "reply_all_comments" : "keyword",
+          trigger_source: triggerSource,  // NEW
+          trigger_type: replyToAll ? "reply_all" : "keyword",
           trigger_value: replyToAll ? "ALL_COMMENTS" : triggers.join(", "),
           content,
           specific_media_id: selectedReel?.id || null,
