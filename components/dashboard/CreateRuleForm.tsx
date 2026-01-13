@@ -173,242 +173,222 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Rule Name</Label>
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="bg-black/20 border-white/10 focus:bg-white/5 transition-colors"
-            placeholder="e.g. Welcome Menu"
-          />
-        </div>
-        <div className="space-y-2 col-span-2">
-          <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">
-            Trigger Keywords
-            <span className="text-muted-foreground/60 font-normal ml-2">(Press Enter or comma to add)</span>
-          </Label>
-          <TagInput
-            value={triggers}
-            onChange={setTriggers}
-            placeholder="e.g. hello, hi, hey"
-          />
-        </div>
+      {/* Context-aware header */}
+      <div className="mb-4">
+        <h3 className="text-lg font-bold text-white">
+          {triggerSource === 'comment' ? '💬 Create Comment Automation' : '📨 Create DM Automation'}
+        </h3>
+        <p className="text-sm text-neutral-400">
+          {triggerSource === 'comment'
+            ? 'Automatically reply to comments on your posts with custom messages'
+            : 'Automatically reply to Instagram DMs with smart keyword triggers'}
+        </p>
       </div>
 
-      <div className="flex items-center gap-3 p-4 rounded-xl border border-yellow-500/20 bg-gradient-to-r from-yellow-500/5 to-transparent">
-        <Switch checked={checkFollow} onCheckedChange={setCheckFollow} id="follow-gate" />
-        <div>
-          <Label htmlFor="follow-gate" className="text-sm font-bold text-yellow-500 flex items-center gap-2 cursor-pointer">
-            <Lock className="w-3.5 h-3.5" /> Follow Gate
-          </Label>
-          <p className="text-[10px] text-muted-foreground mt-0.5">User must follow you to see the reply.</p>
-        </div>
-      </div>
-
-      {/* REPLY TO ALL TOGGLE */}
-      <div className="flex items-center gap-3 p-4 rounded-xl border border-blue-500/20 bg-gradient-to-r from-blue-500/5 to-transparent">
-        <Switch checked={replyToAll} onCheckedChange={setReplyToAll} id="reply-all" />
-        <div>
-          <Label htmlFor="reply-all" className="text-sm font-bold text-blue-400 flex items-center gap-2 cursor-pointer">
-            💬 Reply to ALL Comments
-          </Label>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Automatically respond to every comment on the selected post.</p>
-        </div>
-      </div>
-
-      {/* REEL SELECTOR */}
-      <div className="space-y-2">
-        <div className="flex justify-between items-center px-1">
-          <Label className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-2">
-            <Film className="w-3 h-3" /> Link to specific post (Optional)
-          </Label>
-          {selectedReel && (
-            <button
-              onClick={() => setSelectedReel(null)}
-              className="text-[10px] text-red-400 hover:text-red-300 hover:underline flex items-center gap-1 transition-colors"
-            >
-              <X className="w-3 h-3" /> Clear Selection
-            </button>
-          )}
-        </div>
-
-        <Dialog open={showReelPicker} onOpenChange={setShowReelPicker}>
-          <DialogTrigger asChild>
-            <Button
-              variant="outline"
-              className={`w-full justify-start text-left border-white/10 relative overflow-hidden h-auto py-3 ${selectedReel ? 'bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/30' : 'bg-black/20 hover:bg-white/5'}`}
-              disabled={loadingReels}
-            >
-              {selectedReel ? (
-                <div className="flex items-center gap-3 w-full">
-                  <div className="h-10 w-10 rounded bg-white/10 overflow-hidden shrink-0 border border-white/10">
-                    <img
-                      src={selectedReel.thumbnail_url || selectedReel.media_url || selectedReel.image_url}
-                      className="h-full w-full object-cover"
-                      alt=""
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-white truncate">Included with Post</p>
-                    <p className="text-[10px] text-muted-foreground truncate opacity-70">
-                      {selectedReel.caption || "No Caption"}
-                    </p>
-                  </div>
-                  <CheckCircle2 className="w-4 h-4 text-purple-400" />
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Film className="w-4 h-4 opacity-50" />
-                  <span className="text-xs">
-                    {loadingReels ? "Loading media..." : "Select a post from your feed..."}
-                  </span>
-                </div>
-              )}
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl bg-[#09090b] border-white/10 p-0 overflow-hidden gap-0">
-            <DialogHeader className="px-6 py-4 border-b border-white/5 bg-white/[0.02]">
-              <DialogTitle className="text-sm font-bold uppercase tracking-wider">Select Media</DialogTitle>
-            </DialogHeader>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-1 max-h-[500px] overflow-y-auto p-1 bg-black/50">
-              {loadingReels ? (
-                <div className="col-span-full py-12 flex flex-col items-center gap-3">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-                  <p className="text-xs text-muted-foreground">Syncing with Instagram...</p>
-                </div>
-              ) : reels.length === 0 ? (
-                <div className="col-span-full py-12 text-center">
-                  <AlertCircle className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-50" />
-                  <p className="text-xs text-muted-foreground">No posts found</p>
-                </div>
-              ) : (
-                reels.map((reel) => (
-                  <button
-                    key={reel.id}
-                    onClick={() => {
-                      setSelectedReel(reel)
-                      setShowReelPicker(false)
-                    }}
-                    className={`relative aspect-square group overflow-hidden focus:outline-none transition-all ${selectedReel?.id === reel.id
-                      ? "ring-4 ring-purple-500 z-10"
-                      : "hover:z-10"
-                      }`}
-                  >
-                    <img
-                      src={reel.thumbnail_url || reel.media_url || reel.image_url || "/placeholder.svg"}
-                      alt="reel"
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Plus className="w-8 h-8 text-white drop-shadow-lg" />
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      <Tabs value={type} onValueChange={(v: any) => setType(v)} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 bg-white/5 p-1 rounded-lg">
-          <TabsTrigger value="text" className="data-[state=active]:bg-purple-500 data-[state=active]:text-white">Simple Text</TabsTrigger>
-          <TabsTrigger value="card" className="data-[state=active]:bg-indigo-500 data-[state=active]:text-white">Rich Card</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="text" className="pt-4 animate-in fade-in slide-in-from-left-2 duration-300">
-          <Textarea
-            value={messageText}
-            onChange={(e) => setMessageText(e.target.value)}
-            className="bg-black/20 border-white/10 min-h-[120px] focus:bg-white/5 transition-colors resize-none"
-            placeholder="Type the automated response here..."
-          />
-          <p className="text-[10px] text-muted-foreground text-right mt-1">{messageText.length}/1000</p>
-        </TabsContent>
-
-        <TabsContent value="card" className="pt-4 space-y-4 animate-in fade-in slide-in-from-right-2 duration-300">
-          <div className="space-y-3 p-4 rounded-xl bg-white/[0.02] border border-white/5">
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Rule Name</Label>
             <Input
-              value={cardTitle}
-              onChange={(e) => setCardTitle(e.target.value)}
-              className="bg-black/40 border-white/10 font-bold"
-              placeholder="Card Title"
-            />
-            <Input
-              value={cardSubtitle}
-              onChange={(e) => setCardSubtitle(e.target.value)}
-              className="bg-black/40 border-white/10 text-sm"
-              placeholder="Subtitle (Optional)"
-            />
-            <Input
-              value={cardImage}
-              onChange={(e) => setCardImage(e.target.value)}
-              className="bg-black/40 border-white/10 text-xs"
-              placeholder="Image URL (https://...)"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="bg-black/20 border-white/10 focus:bg-white/5 transition-colors"
+              placeholder="e.g. Welcome Menu"
             />
           </div>
+        </div>
 
-          <div className="space-y-3 pt-2">
-            <div className="flex justify-between items-center px-1">
-              <Label className="text-[10px] uppercase font-bold text-muted-foreground">
-                Action Buttons ({buttons.length}/3)
+        {/* Only show Reply-to-All for COMMENTS */}
+        {triggerSource === 'comment' && (
+          <div className="flex items-center gap-3 p-4 rounded-xl border border-pink-500/20 bg-gradient-to-r from-pink-500/5 to-transparent">
+            <Switch checked={replyToAll} onCheckedChange={setReplyToAll} id="reply-all" />
+            <div className="flex-1">
+              <Label htmlFor="reply-all" className="text-sm font-semibold text-pink-300 cursor-pointer">
+                Reply to ALL Comments 🔥
               </Label>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={handleAddButton}
-                disabled={buttons.length >= 3}
-                className="h-6 text-xs hover:bg-white/10"
-              >
-                <Plus className="w-3 h-3 mr-1" /> Add Button
-              </Button>
+              <p className="text-xs text-neutral-500 mt-0.5">
+                Send this response to every comment on a specific post (no keyword needed)
+              </p>
             </div>
-
-            {buttons.map((btn) => (
-              <div key={btn.id} className="flex gap-2 items-center bg-white/5 p-2 rounded-lg border border-white/10 animate-in fade-in slide-in-from-top-1">
-                <Input
-                  value={btn.title}
-                  onChange={(e) => updateButton(btn.id, "title", e.target.value)}
-                  className="h-8 text-xs w-1/3 bg-transparent border-none focus:ring-0 px-2"
-                  placeholder="Label"
-                />
-                <div className="h-4 w-px bg-white/10"></div>
-                <Select value={btn.type} onValueChange={(v) => updateButton(btn.id, "type", v as any)}>
-                  <SelectTrigger className="h-8 w-[90px] text-[10px] bg-black/20 border-0">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="web_url">Link</SelectItem>
-                    <SelectItem value="postback">Flow</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Input
-                  value={btn.type === "web_url" ? btn.url : btn.payload}
-                  onChange={(e) => updateButton(btn.id, btn.type === "web_url" ? "url" : "payload", e.target.value)}
-                  className="h-8 text-xs flex-1 bg-transparent border-none focus:ring-0 px-2"
-                  placeholder={btn.type === "web_url" ? "https://..." : "Next Keyword"}
-                />
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => removeButton(btn.id)}
-                  className="h-6 w-6 text-red-500 hover:text-red-400 hover:bg-red-500/10 rounded"
-                >
-                  <Trash2 className="w-3 h-3 is-icon" />
-                </Button>
-              </div>
-            ))}
           </div>
-        </TabsContent>
-      </Tabs>
+        )}
 
-      <Button
-        onClick={handleSubmit}
-        className="w-full bg-white text-black hover:bg-white/90 font-bold h-11 rounded-xl shadow-lg shadow-white/5 transform active:scale-95 transition-all"
-      >
-        Create Automation
-      </Button>
+        {/* Conditional trigger input - hide for reply-all */}
+        {!(triggerSource === 'comment' && replyToAll) && (
+          <div className="space-y-2">
+            <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">
+              Trigger Keywords
+              <span className="text-muted-foreground/60 font-normal ml-2">(Press Enter or comma to add)</span>
+            </Label>
+            <TagInput
+              value={triggers}
+              onChange={setTriggers}
+              placeholder={triggerSource === 'comment' ? 'e.g. hello, info, price' : 'e.g. hello, hi, menu'}
+            />
+          </div>
+        )}
+
+        <div className="flex items-center gap-3 p-4 rounded-xl border border-yellow-500/20 bg-gradient-to-r from-yellow-500/5 to-transparent">
+          <Switch checked={checkFollow} onCheckedChange={setCheckFollow} id="follow-gate" />
+          <div>
+            <Label htmlFor="follow-gate" className="text-sm font-bold text-yellow-500 flex items-center gap-2 cursor-pointer">
+              <Lock className="w-3.5 h-3.5" /> Follow Gate
+            </Label>
+            <p className="text-[10px] text-muted-foreground mt-0.5">User must follow you to see the reply.</p>
+          </div>
+        </div>
+
+        {/* Only show reel picker for COMMENTS */}
+        {triggerSource === 'comment' && (
+          <div className="space-y-3">
+            <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">
+              {replyToAll ? 'Select Post/Reel (Required for Reply-All)' : 'Link to Specific Post/Reel (Optional)'}
+            </Label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowReelPicker(!showReelPicker)}
+                className="w-full p-4 rounded-xl border border-white/10 bg-black/20 hover:bg-white/5 transition-colors text-left flex items-center justify-between group"
+              >
+                {selectedReel ? (
+                  <div className="flex items-center gap-3">
+                    {selectedReel.image_url && (
+                      <img
+                        src={selectedReel.image_url}
+                        alt="Reel thumbnail"
+                        className="w-12 h-12 rounded object-cover"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">
+                        {selectedReel.caption || 'No caption'}
+                      </p>
+                      <p className="text-xs text-neutral-500">Selected Post</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-neutral-400 group-hover:text-white transition-colors">
+                    <Sparkles className="w-4 h-4" />
+                    <span className="text-sm">
+                      {replyToAll ? 'Choose a post/reel' : 'Pick a post/reel (optional)'}
+                    </span>
+                  </div>
+                )}
+              </button>
+
+              {showReelPicker && (
+                <ReelPicker userId={userId} onSelect={(reel: any) => {
+                  setSelectedReel(reel)
+                  setShowReelPicker(false)
+                }} />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Response Configuration */}
+        <div className="space-y-4">
+
+          <Tabs value={type} onValueChange={(v: any) => setType(v)} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 bg-white/5 p-1 rounded-lg">
+              <TabsTrigger value="text" className="data-[state=active]:bg-purple-500 data-[state=active]:text-white">Simple Text</TabsTrigger>
+              <TabsTrigger value="card" className="data-[state=active]:bg-indigo-500 data-[state=active]:text-white">Rich Card</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="text" className="pt-4 animate-in fade-in slide-in-from-left-2 duration-300">
+              <Textarea
+                value={messageText}
+                onChange={(e) => setMessageText(e.target.value)}
+                className="bg-black/20 border-white/10 min-h-[120px] focus:bg-white/5 transition-colors resize-none"
+                placeholder="Type the automated response here..."
+              />
+              <p className="text-[10px] text-muted-foreground text-right mt-1">{messageText.length}/1000</p>
+            </TabsContent>
+
+            <TabsContent value="card" className="pt-4 space-y-4 animate-in fade-in slide-in-from-right-2 duration-300">
+              <div className="space-y-3 p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                <Input
+                  value={cardTitle}
+                  onChange={(e) => setCardTitle(e.target.value)}
+                  className="bg-black/40 border-white/10 font-bold"
+                  placeholder="Card Title"
+                />
+                <Input
+                  value={cardSubtitle}
+                  onChange={(e) => setCardSubtitle(e.target.value)}
+                  className="bg-black/40 border-white/10 text-sm"
+                  placeholder="Subtitle (Optional)"
+                />
+                <Input
+                  value={cardImage}
+                  onChange={(e) => setCardImage(e.target.value)}
+                  className="bg-black/40 border-white/10 text-xs"
+                  placeholder="Image URL (https://...)"
+                />
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <div className="flex justify-between items-center px-1">
+                  <Label className="text-[10px] uppercase font-bold text-muted-foreground">
+                    Action Buttons ({buttons.length}/3)
+                  </Label>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleAddButton}
+                    disabled={buttons.length >= 3}
+                    className="h-6 text-xs hover:bg-white/10"
+                  >
+                    <Plus className="w-3 h-3 mr-1" /> Add Button
+                  </Button>
+                </div>
+
+                {buttons.map((btn) => (
+                  <div key={btn.id} className="flex gap-2 items-center bg-white/5 p-2 rounded-lg border border-white/10 animate-in fade-in slide-in-from-top-1">
+                    <Input
+                      value={btn.title}
+                      onChange={(e) => updateButton(btn.id, "title", e.target.value)}
+                      className="h-8 text-xs w-1/3 bg-transparent border-none focus:ring-0 px-2"
+                      placeholder="Label"
+                    />
+                    <div className="h-4 w-px bg-white/10"></div>
+                    <Select value={btn.type} onValueChange={(v) => updateButton(btn.id, "type", v as any)}>
+                      <SelectTrigger className="h-8 w-[90px] text-[10px] bg-black/20 border-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="web_url">Link</SelectItem>
+                        <SelectItem value="postback">Flow</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      value={btn.type === "web_url" ? btn.url : btn.payload}
+                      onChange={(e) => updateButton(btn.id, btn.type === "web_url" ? "url" : "payload", e.target.value)}
+                      className="h-8 text-xs flex-1 bg-transparent border-none focus:ring-0 px-2"
+                      placeholder={btn.type === "web_url" ? "https://..." : "Next Keyword"}
+                    />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => removeButton(btn.id)}
+                      className="h-6 w-6 text-red-500 hover:text-red-400 hover:bg-red-500/10 rounded"
+                    >
+                      <Trash2 className="w-3 h-3 is-icon" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <Button
+            onClick={handleSubmit}
+            className="w-full bg-white text-black hover:bg-white/90 font-bold h-11 rounded-xl shadow-lg shadow-white/5 transform active:scale-95 transition-all"
+          >
+            Create Automation
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }
