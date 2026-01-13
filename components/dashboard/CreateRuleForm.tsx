@@ -349,6 +349,54 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
           </div>
         )}
 
+        {/* Story picker for STORIES - optional */}
+        {triggerSource === 'story' && (
+          <div className="space-y-3">
+            <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">
+              Target Specific Story (Optional)
+            </Label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowReelPicker(!showReelPicker)}
+                className="w-full p-4 rounded-xl border border-white/10 bg-black/20 hover:bg-white/5 transition-colors text-left flex items-center justify-between group"
+              >
+                {selectedReel ? (
+                  <div className="flex items-center gap-3">
+                    {selectedReel.image_url && (
+                      <img
+                        src={selectedReel.image_url}
+                        alt="Story thumbnail"
+                        className="w-12 h-12 rounded object-cover"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">
+                        {selectedReel.caption || 'Active Story'}
+                      </p>
+                      <p className="text-xs text-neutral-500">Selected Story</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-neutral-400 group-hover:text-white transition-colors">
+                    <Sparkles className="w-4 h-4" />
+                    <span className="text-sm">
+                      Pick a story (optional - leave empty for all stories)
+                    </span>
+                  </div>
+                )}
+              </button>
+
+              {showReelPicker && (
+                <ReelPicker userId={userId} storiesOnly={true} onSelect={(reel: any) => {
+                  setSelectedReel(reel)
+                  setShowReelPicker(false)
+                }} />
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Response Configuration */}
         <div className="space-y-4">
 
