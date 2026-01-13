@@ -175,47 +175,77 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
   }
 
   // Inline ReelPicker component
-  const ReelPicker = ({ userId, onSelect }: { userId: string; onSelect: (reel: any) => void }) => {
+  const ReelPicker = ({ userId, onSelect, filterType }: { userId: string; onSelect: (reel: any) => void; filterType?: 'story' | 'all' }) => {
     if (loadingReels) {
       return (
         <div className="absolute top-full left-0 right-0 mt-2 p-4 bg-black/95 border border-white/20 rounded-xl text-center z-50">
-          <p className="text-neutral-400">Loading...</p>
+          <p className="text-neutral-400">Loading media...</p>
         </div>
       )
     }
 
-    if (reels.length === 0) {
+    // Filter based on type
+    const filteredReels = filterType === 'story'
+      ? reels.filter((r: any) => r.media_type === 'STORY' || r.media_product_type === 'STORY')
+      : reels
+
+    if (filteredReels.length === 0) {
       return (
         <div className="absolute top-full left-0 right-0 mt-2 p-4 bg-black/95 border border-white/20 rounded-xl text-center z-50">
-          <p className="text-neutral-400">No posts/reels/stories found</p>
+          <p className="text-neutral-400">
+            {filterType === 'story' ? 'No active stories found' : 'No posts/reels found'}
+          </p>
         </div>
       )
     }
 
     return (
       <div className="absolute top-full left-0 right-0 mt-2 max-h-64 overflow-y-auto bg-black/95 border border-white/20 rounded-xl z-50">
-        {reels.map((reel: any) => (
-          <button
-            key={reel.id}
-            type="button"
-            onClick={() => onSelect(reel)}
-            className="w-full p-3 flex items-center gap-3 hover:bg-white/10 transition-colors text-left"
-          >
-            {reel.image_url && (
-              <img
-                src={reel.image_url}
-                alt="Media thumbnail"
-                className="w-12 h-12 rounded object-cover"
-              />
-            )}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-white truncate">
-                {reel.caption || 'Untitled Post'}
-              </p>
-              <p className="text-xs text-neutral-500">{reel.media_type}</p>
-            </div>
-          </button>
-        ))}
+        {filteredReels.map((reel: any) => {
+          const isStory = reel.media_type === 'STORY' || reel.media_product_type === 'STORY'
+          const mediaTypeLabel = isStory ? '📖 Story' :
+            reel.media_type === 'VIDEO' ? '🎬 Reel' :
+              reel.media_type === 'CAROUSEL_ALBUM' ? '🎠 Carousel' : '📷 Post'
+
+          const timestamp = reel.timestamp ? new Date(reel.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
+
+          return (
+            <button
+              key={reel.id}
+              type="button"
+              onClick={() => onSelect(reel)}
+              className="w-full p-3 flex items-center gap-3 hover:bg-white/10 transition-colors text-left border-b border-white/5 last:border-0"
+            >
+              {reel.image_url && (
+                <img
+                  src={reel.image_url}
+                  alt="Media thumbnail"
+                  className="w-14 h-14 rounded object-cover flex-shrink-0"
+                />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-white truncate font-medium">
+                  {reel.caption || 'Untitled'}
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs text-neutral-400">{mediaTypeLabel}</span>
+                  {timestamp && (
+                    <>
+                      <span className="text-neutral-600">•</span>
+                      <span className="text-xs text-neutral-500">{timestamp}</span>
+                    </>
+                  )}
+                  {isStory && (
+                    <>
+                      <span className="text-neutral-600">•</span>
+                      <span className="text-xs text-pink-400">24h</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </button>
+          )
+        })}
       </div>
     )
   }
