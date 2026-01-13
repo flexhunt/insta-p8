@@ -174,6 +174,52 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
     }
   }
 
+  // Inline ReelPicker component
+  const ReelPicker = ({ userId, onSelect }: { userId: string; onSelect: (reel: any) => void }) => {
+    if (loadingReels) {
+      return (
+        <div className="absolute top-full left-0 right-0 mt-2 p-4 bg-black/95 border border-white/20 rounded-xl text-center z-50">
+          <p className="text-neutral-400">Loading...</p>
+        </div>
+      )
+    }
+
+    if (reels.length === 0) {
+      return (
+        <div className="absolute top-full left-0 right-0 mt-2 p-4 bg-black/95 border border-white/20 rounded-xl text-center z-50">
+          <p className="text-neutral-400">No posts/reels/stories found</p>
+        </div>
+      )
+    }
+
+    return (
+      <div className="absolute top-full left-0 right-0 mt-2 max-h-64 overflow-y-auto bg-black/95 border border-white/20 rounded-xl z-50">
+        {reels.map((reel: any) => (
+          <button
+            key={reel.id}
+            type="button"
+            onClick={() => onSelect(reel)}
+            className="w-full p-3 flex items-center gap-3 hover:bg-white/10 transition-colors text-left"
+          >
+            {reel.image_url && (
+              <img
+                src={reel.image_url}
+                alt="Media thumbnail"
+                className="w-12 h-12 rounded object-cover"
+              />
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-white truncate">
+                {reel.caption || 'Untitled Post'}
+              </p>
+              <p className="text-xs text-neutral-500">{reel.media_type}</p>
+            </div>
+          </button>
+        ))}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Context-aware header */}
