@@ -220,6 +220,117 @@ export async function POST(request: NextRequest) {
       }
 
       // ============================================================
+      //  PART A.5: STORY AUTOMATION HANDLING
+      // ============================================================
+      if (entry.messaging) {
+        for (const event of entry.messaging) {
+          const senderId = event.sender.id
+          const recipientId = event.recipient.id
+
+          // Skip system events
+          if (event.read || event.delivery || event.message?.is_echo || senderId === recipientId) continue
+
+          // Filter story automations only
+          const storyAutomations = automations.filter((a: any) => a.trigger_source === 'story')
+          if (storyAutomations.length === 0) continue
+
+          let match = null
+          let storyMediaId: string | null = null
+
+          // 1️⃣ Story Mention Handler
+          if (event.message?.attachments?.[0]?.type === 'story_mention') {
+            const attachment = event.message.attachments[0]
+            storyMediaId = attachment.payload?.url || null
+
+            match = storyAutomations.find((a: any) =>
+              a.trigger_type === 'mention' &&
+              (!a.specific_media_id || a.specific_media_id === storyMediaId)
+            )
+          }
+
+          // 2️⃣ Story Reaction Handler  
+          else if (event.reaction) {
+            const reactionEmoji = event.reaction.emoji
+            storyMediaId = event.reaction.mid || null
+
+            match = storyAutomations.find((a: any) => {
+              if (a.trigger_type !== 'reaction') return false
+              if (a.specific_media_id && a.specific_media_id !== storyMediaId) return false
+
+              const triggers = a.trigger_value?.split(',').map((t: string) => t.trim()) || []
+              if (triggers.length > 0 && triggers[0] !== 'ALL' && triggers[0] !== '') {
+                return triggers.includes(reactionEmoji)
+              }
+              return true
+            })
+          }
+
+          // 3️⃣ Story Reply Handler
+          else if (event.message?.reply_to?.story) {
+            const messageText = event.message.text || ''
+            storyMediaId = event.message.reply_to.story.id || null
+
+            match = storyAutomations.find((a: any) => {
+              if (a.trigger_type !== 'reply') return false
+              if (a.specific_media_id && a.specific_media_id !== storyMediaId) return false
+
+              const triggers = a.trigger_value?.split(',').map((t: string) => t.trim()) || []
+              if (triggers.length > 0 && triggers[0] !== 'ALL' && triggers[0] !== 'ALL_MENTIONS' && triggers[0] !== '') {
+                return triggers.some((keyword: string) =>
+                  new RegExp(`\\b${keyword}\\b`, 'i').test(messageText)
+                )
+              }
+              return true
+            })
+          }
+
+          // Send response if match found
+          if (match) {
+            console.log(`✨ Story automation matched: ${match.name}`)
+
+            try {
+              const content = JSON.parse(match.response_content)
+              const apiBody: any = { recipient: { id: senderId } }
+
+              if (content.message) {
+                apiBody.message = { text: content.message }
+              } else if (content.card) {
+                const card = content.card
+                const apiButtons = card.buttons.map((b: any) => ({
+                  type: b.type,
+                  title: b.title,
+                  url: b.url || undefined,
+                  payload: b.payload || undefined,
+                }))
+                const element: any = { title: card.title, buttons: apiButtons }
+                if (card.subtitle) element.subtitle = card.subtitle
+                if (card.image_url && card.image_url.startsWith("http")) element.image_url = card.image_url
+
+                apiBody.message = {
+                  attachment: {
+                    type: "template",
+                    payload: {
+                      template_type: "generic",
+                      elements: [element],
+                    },
+                  },
+                }
+              }
+
+              await fetch(
+                `https://graph.instagram.com/v24.0/me/messages?access_token=${encodeURIComponent(user.access_token)}`,
+                { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(apiBody) },
+              )
+
+              console.log(`✅ Story automation sent: ${match.name}`)
+            } catch (err) {
+              console.error('❌ Story automation error:', err)
+            }
+          }
+        }
+      }
+
+      // ============================================================
       //  PART B: MESSAGES (DMs)
       // ============================================================
       if (entry.messaging) {
