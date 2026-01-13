@@ -132,9 +132,12 @@ export async function POST(request: NextRequest) {
             // ============================================================
             // 🧠 SMART MATCHING LOGIC
             // ============================================================
+            // Filter to comment-only automations first
+            const commentAutomations = automations.filter((a: any) => a.trigger_source === 'comment')
+
             // Priority 1: Reply-All (Specific post, ALL comments)
-            let match = automations.find(
-              (a) => a.specific_media_id === mediaId && a.trigger_type === "reply_all_comments",
+            let match = commentAutomations.find(
+              (a: any) => a.specific_media_id === mediaId && a.trigger_type === "reply_all",
             )
 
             // Priority 2: Specific Post + Keyword Match

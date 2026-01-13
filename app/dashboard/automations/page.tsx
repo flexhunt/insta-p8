@@ -73,8 +73,8 @@ export default function AutomationsPage() {
                     <button
                         onClick={() => setActiveTab('comment')}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg font-semibold transition-all whitespace-nowrap ${activeTab === 'comment'
-                                ? 'bg-purple-500/20 text-purple-300 border-b-2 border-purple-400'
-                                : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                            ? 'bg-purple-500/20 text-purple-300 border-b-2 border-purple-400'
+                            : 'text-neutral-400 hover:text-white hover:bg-white/5'
                             }`}
                     >
                         <MessageCircle className="w-4 h-4" />
@@ -89,8 +89,8 @@ export default function AutomationsPage() {
                     <button
                         onClick={() => setActiveTab('dm')}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg font-semibold transition-all whitespace-nowrap ${activeTab === 'dm'
-                                ? 'bg-blue-500/20 text-blue-300 border-b-2 border-blue-400'
-                                : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                            ? 'bg-blue-500/20 text-blue-300 border-b-2 border-blue-400'
+                            : 'text-neutral-400 hover:text-white hover:bg-white/5'
                             }`}
                     >
                         <Send className="w-4 h-4" />
@@ -105,57 +105,51 @@ export default function AutomationsPage() {
                     <button
                         onClick={() => setActiveTab('story')}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg font-semibold transition-all whitespace-nowrap ${activeTab === 'story'
-                                ? 'bg-pink-500/20 text-pink-300 border-b-2 border-pink-400'
-                                : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                            ? 'bg-pink-500/20 text-pink-300 border-b-2 border-pink-400'
+                            : 'text-neutral-400 hover:text-white hover:bg-white/5'
                             }`}
                     >
                         <Sparkles className="w-4 h-4" />
                         Stories
-                        <span className="bg-yellow-500/30 text-yellow-200 text-xs px-2 py-0.5 rounded-full">
-                            Soon
-                        </span>
+                        {counts.story > 0 && (
+                            <span className="bg-pink-500/30 text-pink-200 text-xs px-2 py-0.5 rounded-full">
+                                {counts.story}
+                            </span>
+                        )}
                     </button>
                 </div>
 
                 {/* Tab Content */}
-                {activeTab === 'story' ? (
-                    <Card className="p-12 text-center">
-                        <Sparkles className="w-16 h-16 mx-auto mb-4 text-pink-400 opacity-50" />
-                        <h3 className="text-2xl font-bold text-neutral-300 mb-2">Coming Soon!</h3>
-                        <p className="text-neutral-500">Story automations will be available in a future update.</p>
+                <>
+                    {/* Create Rule Form */}
+                    <Card className="p-6 bg-black/40 backdrop-blur border-white/10">
+                        <CreateRuleForm
+                            userId={userId}
+                            triggerSource={activeTab}
+                            onSuccess={fetchAutomations}
+                        />
                     </Card>
-                ) : (
-                    <>
-                        {/* Create Rule Form */}
+
+                    {/* Ice Breakers (DM only) */}
+                    {activeTab === 'dm' && (
                         <Card className="p-6 bg-black/40 backdrop-blur border-white/10">
-                            <CreateRuleForm
+                            <IceBreakers userId={userId} />
+                        </Card>
+                    )}
+
+                    {/* Automation List */}
+                    <Card className="p-6 bg-black/40 backdrop-blur border-white/10">
+                        {isLoading ? (
+                            <div className="text-center py-12 text-neutral-400">Loading automations...</div>
+                        ) : (
+                            <AutomationList
+                                automations={filteredAutomations}
+                                onDelete={handleDeleteRule}
                                 userId={userId}
-                                triggerSource={activeTab}
-                                onSuccess={fetchAutomations}
                             />
-                        </Card>
-
-                        {/* Ice Breakers (DM only) */}
-                        {activeTab === 'dm' && (
-                            <Card className="p-6 bg-black/40 backdrop-blur border-white/10">
-                                <IceBreakers userId={userId} />
-                            </Card>
                         )}
-
-                        {/* Automation List */}
-                        <Card className="p-6 bg-black/40 backdrop-blur border-white/10">
-                            {isLoading ? (
-                                <div className="text-center py-12 text-neutral-400">Loading automations...</div>
-                            ) : (
-                                <AutomationList
-                                    automations={filteredAutomations}
-                                    onDelete={handleDeleteRule}
-                                    userId={userId}
-                                />
-                            )}
-                        </Card>
-                    </>
-                )}
+                    </Card>
+                </>
             </div>
         </div>
     )
