@@ -76,3 +76,34 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Failed to delete" }, { status: 500 })
   }
 }
+
+export async function PUT(request: NextRequest) {
+  try {
+    const { id, name, trigger_type, trigger_value, content, specific_media_id } = await request.json()
+
+    if (!id || !name || !trigger_value || !content) {
+      return NextResponse.json({ error: "Missing fields" }, { status: 400 })
+    }
+
+    const supabase = await getSupabaseServerClient()
+
+    const { data, error } = await supabase
+      .from("automations")
+      .update({
+        name,
+        trigger_type: trigger_type || "keyword",
+        trigger_value: trigger_value.toLowerCase(),
+        response_content: content,
+        specific_media_id: specific_media_id || null,
+      })
+      .eq("id", id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return NextResponse.json(data)
+  } catch (error) {
+    console.error("[v0] Automations PUT error:", error)
+    return NextResponse.json({ error: "Failed to update" }, { status: 500 })
+  }
+}

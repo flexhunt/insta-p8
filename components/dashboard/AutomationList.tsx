@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Search, Trash2, Lock, Globe, MapPin, Instagram, Zap } from "lucide-react"
 import type { Automation } from "@/lib/types"
 
@@ -84,11 +85,16 @@ export function AutomationList({ automations, onDelete, userId }: AutomationList
           </div>
         </td>
         <td className="px-6 py-4">
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-white/5 border border-white/10 group-hover:border-purple-500/30 transition-colors">
-            <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Trigger:</span>
-            <code className="text-purple-300 text-xs font-mono font-bold">
-              {rule.trigger_value}
-            </code>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {rule.trigger_value.split(",").map((keyword, idx) => (
+              <Badge
+                key={idx}
+                variant="secondary"
+                className="bg-purple-500/10 text-purple-300 border border-purple-500/30 text-[11px] font-mono px-2 py-0.5"
+              >
+                {keyword.trim()}
+              </Badge>
+            ))}
           </div>
         </td>
         <td className="px-6 py-4 text-muted-foreground text-xs">
@@ -256,9 +262,19 @@ function MobileRuleCard({ rule, onDelete, isSpecific, mediaUrl }: { rule: Automa
       </div>
 
       <div className="grid grid-cols-2 gap-2 text-xs">
-        <div className="bg-black/20 rounded-lg p-2 border border-white/5">
-          <span className="block text-[10px] uppercase text-muted-foreground font-bold mb-1">Trigger</span>
-          <code className="text-purple-300 font-mono">{rule.trigger_value}</code>
+        <div className="bg-black/20 rounded-lg p-2 border border-white/5 col-span-2">
+          <span className="block text-[10px] uppercase text-muted-foreground font-bold mb-2">Triggers</span>
+          <div className="flex flex-wrap gap-1">
+            {rule.trigger_value.split(",").map((keyword, idx) => (
+              <Badge
+                key={idx}
+                variant="secondary"
+                className="bg-purple-500/10 text-purple-300 border border-purple-500/30 text-[10px] font-mono px-1.5 py-0.5"
+              >
+                {keyword.trim()}
+              </Badge>
+            ))}
+          </div>
         </div>
         <div className="bg-black/20 rounded-lg p-2 border border-white/5">
           <span className="block text-[10px] uppercase text-muted-foreground font-bold mb-1">Response</span>

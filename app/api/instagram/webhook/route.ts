@@ -133,284 +133,291 @@ export async function POST(request: NextRequest) {
                         // ============================================================
                         // 🧠 SMART MATCHING LOGIC
                         // ============================================================
-                        // Priority 1: Specific Post Match
+                        // Priority 1: Reply-All (Specific post, ALL comments)
                         let match = automations.find(a =>
                             a.specific_media_id === mediaId &&
-                            a.trigger_type === "keyword" &&
-                            a.trigger_value.split(",").some((k: string) => new RegExp(`\\b${k.trim()}\\b`, "i").test(commentText))
+                            a.trigger_type === "reply_all_comments"
                         )
 
-                        // Priority 2: Global Match (Only if no specific match found)
+                        // Priority 2: Specific Post + Keyword Match
                         if (!match) {
                             match = automations.find(a =>
-                                !a.specific_media_id && // Must be global
+                                a.specific_media_id === mediaId &&
                                 a.trigger_type === "keyword" &&
                                 a.trigger_value.split(",").some((k: string) => new RegExp(`\\b${k.trim()}\\b`, "i").test(commentText))
                             )
-                        }
 
-                        if (match) {
-                            console.log(`[v0] ✅ Comment Match: "${match.name}" (ID: ${match.id})`)
-                            const content = match.response_content
-                            const replies = ["Check your DMs! 📥", "Sent! 🔥", "Check inbox! ✨"]
-                            const randomReply = replies[Math.floor(Math.random() * replies.length)]
+                            // Priority 3: Global Keyword Match (Only if no specific match found)
+                            if (!match) {
+                                match = automations.find(a =>
+                                    !a.specific_media_id && // Must be global
+                                    a.trigger_type === "keyword" &&
+                                    a.trigger_value.split(",").some((k: string) => new RegExp(`\\b${k.trim()}\\b`, "i").test(commentText))
+                                )
+                            }
 
-                            // Public Reply
-                            await fetch(
-                                `https://graph.instagram.com/v24.0/${commentId}/replies?access_token=${encodeURIComponent(user.access_token)}`,
-                                { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: randomReply }) }
-                            ).catch(e => console.error(e))
+                            if (match) {
+                                console.log(`[v0] ✅ Comment Match: "${match.name}" (ID: ${match.id})`)
+                                const content = match.response_content
+                                const replies = ["Check your DMs! 📥", "Sent! 🔥", "Check inbox! ✨"]
+                                const randomReply = replies[Math.floor(Math.random() * replies.length)]
 
-                            // Private Reply
-                            let apiBody: any = { recipient: { comment_id: commentId } }
+                                // Public Reply
+                                await fetch(
+                                    `https://graph.instagram.com/v24.0/${commentId}/replies?access_token=${encodeURIComponent(user.access_token)}`,
+                                    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: randomReply }) }
+                                ).catch(e => console.error(e))
 
-                            if (content.message) {
-                                // Plain Text
-                                apiBody.message = { text: content.message }
-                            } else if (content.card) {
-                                // Rich Card / Generic Template
-                                const card = content.card
-                                const apiButtons = card.buttons.map((b: any) => ({
-                                    type: b.type,
-                                    title: b.title,
-                                    url: b.url || undefined,
-                                    payload: b.payload || undefined,
-                                }))
-                                const element: any = { title: card.title, buttons: apiButtons }
-                                if (card.subtitle) element.subtitle = card.subtitle
-                                if (card.image_url && card.image_url.startsWith("http")) element.image_url = card.image_url
+                                // Private Reply
+                                let apiBody: any = { recipient: { comment_id: commentId } }
 
-                                apiBody.message = {
-                                    attachment: {
-                                        type: "template",
-                                        payload: {
-                                            template_type: "generic",
-                                            elements: [element]
+                                if (content.message) {
+                                    // Plain Text
+                                    apiBody.message = { text: content.message }
+                                } else if (content.card) {
+                                    // Rich Card / Generic Template
+                                    const card = content.card
+                                    const apiButtons = card.buttons.map((b: any) => ({
+                                        type: b.type,
+                                        title: b.title,
+                                        url: b.url || undefined,
+                                        payload: b.payload || undefined,
+                                    }))
+                                    const element: any = { title: card.title, buttons: apiButtons }
+                                    if (card.subtitle) element.subtitle = card.subtitle
+                                    if (card.image_url && card.image_url.startsWith("http")) element.image_url = card.image_url
+
+                                    apiBody.message = {
+                                        attachment: {
+                                            type: "template",
+                                            payload: {
+                                                template_type: "generic",
+                                                elements: [element]
+                                            }
                                         }
                                     }
                                 }
-                            }
 
-                            await fetch(
-                                `https://graph.instagram.com/v24.0/me/messages?access_token=${encodeURIComponent(user.access_token)}`,
-                                { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(apiBody) }
-                            ).catch(e => console.error(e))
+                                await fetch(
+                                    `https://graph.instagram.com/v24.0/me/messages?access_token=${encodeURIComponent(user.access_token)}`,
+                                    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(apiBody) }
+                                ).catch(e => console.error(e))
+                            }
                         }
                     }
                 }
-            }
 
-            // ============================================================
-            //  PART B: MESSAGES (DMs)
-            // ============================================================
-            if (entry.messaging) {
-                for (const event of entry.messaging) {
-                    if (event.read || event.delivery || event.reaction || event.message?.is_echo) continue;
+                // ============================================================
+                //  PART B: MESSAGES (DMs)
+                // ============================================================
+                if (entry.messaging) {
+                    for (const event of entry.messaging) {
+                        if (event.read || event.delivery || event.reaction || event.message?.is_echo) continue;
 
-                    const senderId = event.sender.id
-                    if (senderId === webhookId || senderId === user.business_account_id || senderId === user.page_id) continue
+                        const senderId = event.sender.id
+                        if (senderId === webhookId || senderId === user.business_account_id || senderId === user.page_id) continue
 
-                    let triggerType = "", triggerValue = ""
+                        let triggerType = "", triggerValue = ""
 
-                    if (event.message?.text) {
-                        triggerType = "keyword"
-                        triggerValue = event.message.text.toLowerCase().trim()
-                    } else if (event.postback?.payload) {
-                        triggerType = "postback"
-                        triggerValue = event.postback.payload
-                    } else {
-                        continue
-                    }
+                        if (event.message?.text) {
+                            triggerType = "keyword"
+                            triggerValue = event.message.text.toLowerCase().trim()
+                        } else if (event.postback?.payload) {
+                            triggerType = "postback"
+                            triggerValue = event.postback.payload
+                        } else {
+                            continue
+                        }
 
-                    console.log(`[v0] 📩 DM from ${senderId}: "${triggerValue}"`)
+                        console.log(`[v0] 📩 DM from ${senderId}: "${triggerValue}"`)
 
-                    // ============================================================
-                    // 💾 1. SAVE INCOMING MESSAGE (Live Inbox Logic)
-                    // ============================================================
-                    try {
-                        // A. Upsert Conversation
-                        // We try to find an existing conv first to get the ID
-                        let { data: conv } = await supabase
-                            .from("conversations")
-                            .select("id")
-                            .eq("user_id", user.id)
-                            .eq("recipient_id", senderId)
-                            .single()
-
-                        if (!conv) {
-                            // Create new conversation
-
-                            // 1. Try to fetch real username first
-                            let realUsername = `cnt_${senderId.slice(0, 5)}...`
-                            try {
-                                const profileUrl = `https://graph.instagram.com/v24.0/${senderId}?fields=username&access_token=${user.access_token}`
-                                const profileRes = await fetch(profileUrl)
-                                const profileData = await profileRes.json()
-                                if (profileData.username) {
-                                    realUsername = profileData.username
-                                }
-                            } catch (e) {
-                                console.error("[v0] Failed to fetch username", e)
-                            }
-
-                            const { data: newConv } = await supabase
+                        // ============================================================
+                        // 💾 1. SAVE INCOMING MESSAGE (Live Inbox Logic)
+                        // ============================================================
+                        try {
+                            // A. Upsert Conversation
+                            // We try to find an existing conv first to get the ID
+                            let { data: conv } = await supabase
                                 .from("conversations")
-                                .insert({
-                                    user_id: user.id,
-                                    recipient_id: senderId,
-                                    recipient_username: realUsername,
-                                    last_message_at: new Date().toISOString()
-                                })
                                 .select("id")
-                                .single()
-                            conv = newConv
-                        } else {
-                            // Update timestamp
-                            await supabase
-                                .from("conversations")
-                                .update({ last_message_at: new Date().toISOString() })
-                                .eq("id", conv.id)
-                        }
-
-                        if (conv) {
-                            // B. Save User Message
-                            await supabase.from("messages").insert({
-                                id: event.message?.mid || `mid_${Date.now()}_${Math.random()}`,
-                                conversation_id: conv.id,
-                                user_id: user.id,
-                                sender_id: senderId,
-                                sender_username: "User", // We don't have their username easily here
-                                content: triggerValue,
-                                is_from_instagram: true // True = FROM the user TO us
-                            })
-                        }
-                    } catch (err) {
-                        console.error("[v0] Failed to save incoming message DB", err)
-                    }
-                    // ============================================================
-
-
-                    let match = null
-                    if (triggerType === "postback") {
-                        if (triggerValue.startsWith('UNLOCK_CONTENT_')) {
-                            const ruleId = triggerValue.replace('UNLOCK_CONTENT_', '')
-                            match = automations.find(a => a.id === ruleId)
-                        } else if (triggerValue.startsWith('ICE_BREAKER_')) {
-                            // Handle Ice Breaker
-                            const iceBreakerId = triggerValue.replace('ICE_BREAKER_', '')
-                            const { data: ibMatches } = await supabase
-                                .from("ice_breakers")
-                                .select("*")
-                                .eq("id", iceBreakerId)
                                 .eq("user_id", user.id)
+                                .eq("recipient_id", senderId)
                                 .single()
 
-                            if (ibMatches) {
-                                // Construct a temporary match object to reuse the sending logic
-                                match = {
-                                    name: "Ice Breaker: " + ibMatches.question,
-                                    response_content: { message: ibMatches.response }
+                            if (!conv) {
+                                // Create new conversation
+
+                                // 1. Try to fetch real username first
+                                let realUsername = `cnt_${senderId.slice(0, 5)}...`
+                                try {
+                                    const profileUrl = `https://graph.instagram.com/v24.0/${senderId}?fields=username&access_token=${user.access_token}`
+                                    const profileRes = await fetch(profileUrl)
+                                    const profileData = await profileRes.json()
+                                    if (profileData.username) {
+                                        realUsername = profileData.username
+                                    }
+                                } catch (e) {
+                                    console.error("[v0] Failed to fetch username", e)
                                 }
+
+                                const { data: newConv } = await supabase
+                                    .from("conversations")
+                                    .insert({
+                                        user_id: user.id,
+                                        recipient_id: senderId,
+                                        recipient_username: realUsername,
+                                        last_message_at: new Date().toISOString()
+                                    })
+                                    .select("id")
+                                    .single()
+                                conv = newConv
+                            } else {
+                                // Update timestamp
+                                await supabase
+                                    .from("conversations")
+                                    .update({ last_message_at: new Date().toISOString() })
+                                    .eq("id", conv.id)
                             }
-                        } else {
-                            match = automations.find(a => a.trigger_type === "postback" && a.trigger_value === triggerValue)
-                        }
-                    } else {
-                        match = automations.find(a =>
-                            a.trigger_type === "keyword" &&
-                            a.trigger_value.split(",").some((k: string) => new RegExp(`\\b${k.trim()}\\b`, "i").test(triggerValue))
-                        )
-                    }
-
-                    if (!match) {
-                        console.log(`[v0] ❌ No match.`)
-                        continue
-                    }
-
-                    console.log(`[v0] ✅ Match: "${match.name}"`)
-                    const content = match.response_content
-                    const apiBody: any = { recipient: { id: senderId } }
-
-                    let replyTextLog = ""
-
-                    if (content.message) {
-                        apiBody.message = { text: content.message }
-                        replyTextLog = content.message
-                    } else if (content.card) {
-                        const card = content.card
-                        replyTextLog = `[Card] ${card.title}`
-                        const apiButtons = card.buttons.map((b: any) => ({
-                            type: b.type, title: b.title, url: b.url || undefined, payload: b.payload || undefined,
-                        }))
-                        const element: any = { title: card.title, buttons: apiButtons }
-                        if (card.subtitle) element.subtitle = card.subtitle
-                        if (card.image_url && card.image_url.startsWith("http")) element.image_url = card.image_url
-                        apiBody.message = { attachment: { type: "template", payload: { template_type: "generic", elements: [element] } } }
-                    }
-
-                    // Follow Gate Logic
-                    const isUnlockEvent = triggerType === 'postback' && triggerValue.startsWith('UNLOCK_CONTENT_')
-                    if (content.check_follow === true && !isUnlockEvent) {
-                        replyTextLog = "[Locked Content Gate]"
-                        apiBody.message = {
-                            attachment: {
-                                type: "template",
-                                payload: {
-                                    template_type: "generic",
-                                    elements: [{
-                                        title: "🔒 Content Locked",
-                                        subtitle: `Please follow @${user.username} to see this!`,
-                                        buttons: [
-                                            { type: "web_url", url: `https://instagram.com/${user.username}`, title: "Follow Us" },
-                                            { type: "postback", title: "I Followed! ✅", payload: `UNLOCK_CONTENT_${match.id}` }
-                                        ]
-                                    }]
-                                }
-                            }
-                        }
-                    }
-
-                    // SEND REPLY
-                    try {
-                        const res = await fetch(
-                            `https://graph.instagram.com/v24.0/me/messages?access_token=${encodeURIComponent(user.access_token)}`,
-                            { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(apiBody) }
-                        )
-                        const json = await res.json()
-                        if (json.error) console.error("[v0] 🔴 Reply Failed:", json.error)
-                        else {
-                            console.log("[v0] 🟢 Reply Sent!")
-
-                            // ============================================================
-                            // 💾 2. SAVE OUTGOING REPLY (Live Inbox Logic)
-                            // ============================================================
-                            // We need to find the conversation ID again (or pass it down)
-                            // For safety, we just re-query or use the one if we scoped it.
-                            // Doing a quick localized lookup for robustness:
-                            const { data: conv } = await supabase.from("conversations").select("id").eq("user_id", user.id).eq("recipient_id", senderId).single()
 
                             if (conv) {
+                                // B. Save User Message
                                 await supabase.from("messages").insert({
-                                    id: `mid_reply_${Date.now()}_${Math.random()}`,
+                                    id: event.message?.mid || `mid_${Date.now()}_${Math.random()}`,
                                     conversation_id: conv.id,
                                     user_id: user.id,
-                                    sender_id: user.business_account_id, // It's us
-                                    sender_username: user.username,
-                                    content: replyTextLog,
-                                    is_from_instagram: false // False = FROM US
+                                    sender_id: senderId,
+                                    sender_username: "User", // We don't have their username easily here
+                                    content: triggerValue,
+                                    is_from_instagram: true // True = FROM the user TO us
                                 })
                             }
-                            // ============================================================
+                        } catch (err) {
+                            console.error("[v0] Failed to save incoming message DB", err)
                         }
-                    } catch (e) {
-                        console.error("[v0] Network Error:", e)
+                        // ============================================================
+
+
+                        let match = null
+                        if (triggerType === "postback") {
+                            if (triggerValue.startsWith('UNLOCK_CONTENT_')) {
+                                const ruleId = triggerValue.replace('UNLOCK_CONTENT_', '')
+                                match = automations.find(a => a.id === ruleId)
+                            } else if (triggerValue.startsWith('ICE_BREAKER_')) {
+                                // Handle Ice Breaker
+                                const iceBreakerId = triggerValue.replace('ICE_BREAKER_', '')
+                                const { data: ibMatches } = await supabase
+                                    .from("ice_breakers")
+                                    .select("*")
+                                    .eq("id", iceBreakerId)
+                                    .eq("user_id", user.id)
+                                    .single()
+
+                                if (ibMatches) {
+                                    // Construct a temporary match object to reuse the sending logic
+                                    match = {
+                                        name: "Ice Breaker: " + ibMatches.question,
+                                        response_content: { message: ibMatches.response }
+                                    }
+                                }
+                            } else {
+                                match = automations.find(a => a.trigger_type === "postback" && a.trigger_value === triggerValue)
+                            }
+                        } else {
+                            match = automations.find(a =>
+                                a.trigger_type === "keyword" &&
+                                a.trigger_value.split(",").some((k: string) => new RegExp(`\\b${k.trim()}\\b`, "i").test(triggerValue))
+                            )
+                        }
+
+                        if (!match) {
+                            console.log(`[v0] ❌ No match.`)
+                            continue
+                        }
+
+                        console.log(`[v0] ✅ Match: "${match.name}"`)
+                        const content = match.response_content
+                        const apiBody: any = { recipient: { id: senderId } }
+
+                        let replyTextLog = ""
+
+                        if (content.message) {
+                            apiBody.message = { text: content.message }
+                            replyTextLog = content.message
+                        } else if (content.card) {
+                            const card = content.card
+                            replyTextLog = `[Card] ${card.title}`
+                            const apiButtons = card.buttons.map((b: any) => ({
+                                type: b.type, title: b.title, url: b.url || undefined, payload: b.payload || undefined,
+                            }))
+                            const element: any = { title: card.title, buttons: apiButtons }
+                            if (card.subtitle) element.subtitle = card.subtitle
+                            if (card.image_url && card.image_url.startsWith("http")) element.image_url = card.image_url
+                            apiBody.message = { attachment: { type: "template", payload: { template_type: "generic", elements: [element] } } }
+                        }
+
+                        // Follow Gate Logic
+                        const isUnlockEvent = triggerType === 'postback' && triggerValue.startsWith('UNLOCK_CONTENT_')
+                        if (content.check_follow === true && !isUnlockEvent) {
+                            replyTextLog = "[Locked Content Gate]"
+                            apiBody.message = {
+                                attachment: {
+                                    type: "template",
+                                    payload: {
+                                        template_type: "generic",
+                                        elements: [{
+                                            title: "🔒 Content Locked",
+                                            subtitle: `Please follow @${user.username} to see this!`,
+                                            buttons: [
+                                                { type: "web_url", url: `https://instagram.com/${user.username}`, title: "Follow Us" },
+                                                { type: "postback", title: "I Followed! ✅", payload: `UNLOCK_CONTENT_${match.id}` }
+                                            ]
+                                        }]
+                                    }
+                                }
+                            }
+                        }
+
+                        // SEND REPLY
+                        try {
+                            const res = await fetch(
+                                `https://graph.instagram.com/v24.0/me/messages?access_token=${encodeURIComponent(user.access_token)}`,
+                                { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(apiBody) }
+                            )
+                            const json = await res.json()
+                            if (json.error) console.error("[v0] 🔴 Reply Failed:", json.error)
+                            else {
+                                console.log("[v0] 🟢 Reply Sent!")
+
+                                // ============================================================
+                                // 💾 2. SAVE OUTGOING REPLY (Live Inbox Logic)
+                                // ============================================================
+                                // We need to find the conversation ID again (or pass it down)
+                                // For safety, we just re-query or use the one if we scoped it.
+                                // Doing a quick localized lookup for robustness:
+                                const { data: conv } = await supabase.from("conversations").select("id").eq("user_id", user.id).eq("recipient_id", senderId).single()
+
+                                if (conv) {
+                                    await supabase.from("messages").insert({
+                                        id: `mid_reply_${Date.now()}_${Math.random()}`,
+                                        conversation_id: conv.id,
+                                        user_id: user.id,
+                                        sender_id: user.business_account_id, // It's us
+                                        sender_username: user.username,
+                                        content: replyTextLog,
+                                        is_from_instagram: false // False = FROM US
+                                    })
+                                }
+                                // ============================================================
+                            }
+                        } catch (e) {
+                            console.error("[v0] Network Error:", e)
+                        }
                     }
                 }
             }
+            return NextResponse.json({ ok: true })
+        } catch (error) {
+            console.error("[v0] Webhook Error", error)
+            return NextResponse.json({ ok: true })
         }
-        return NextResponse.json({ ok: true })
-    } catch (error) {
-        console.error("[v0] Webhook Error", error)
-        return NextResponse.json({ ok: true })
     }
-}

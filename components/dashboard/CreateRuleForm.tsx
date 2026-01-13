@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Trash2, Lock, Film, X, CheckCircle2, AlertCircle } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { TagInput } from "@/components/ui/tag-input"
 import type { ProButton } from "@/lib/types"
 import { toast } from "sonner"
 
@@ -20,9 +21,10 @@ interface CreateRuleFormProps {
 
 export function CreateRuleForm({ userId, onSuccess }: CreateRuleFormProps) {
   const [name, setName] = useState("")
-  const [trigger, setTrigger] = useState("")
+  const [triggers, setTriggers] = useState<string[]>([])
   const [type, setType] = useState<"text" | "card">("text")
   const [checkFollow, setCheckFollow] = useState(false)
+  const [replyToAll, setReplyToAll] = useState(false)
 
   // Content State
   const [messageText, setMessageText] = useState("")
@@ -84,8 +86,12 @@ export function CreateRuleForm({ userId, onSuccess }: CreateRuleFormProps) {
       toast.error("Missing Logic Name", { description: "Please name your automation rule." })
       return
     }
-    if (!trigger.trim()) {
-      toast.error("Missing Trigger", { description: "Please enter a keyword trigger." })
+    if (!replyToAll && triggers.length === 0) {
+      toast.error("Missing Trigger", { description: "Please enter at least one keyword trigger." })
+      return
+    }
+    if (replyToAll && !selectedReel) {
+      toast.error("Select a Post", { description: "Reply to All requires selecting a specific post." })
       return
     }
 
@@ -132,8 +138,8 @@ export function CreateRuleForm({ userId, onSuccess }: CreateRuleFormProps) {
         body: JSON.stringify({
           userId,
           name,
-          trigger_type: "keyword",
-          trigger_value: trigger,
+          trigger_type: replyToAll ? "reply_all_comments" : "keyword",
+          trigger_value: replyToAll ? "ALL_COMMENTS" : triggers.join(", "),
           content,
           specific_media_id: selectedReel?.id || null,
         }),
@@ -141,11 +147,12 @@ export function CreateRuleForm({ userId, onSuccess }: CreateRuleFormProps) {
 
       if (res.ok) {
         toast.dismiss(loadingToast)
-        toast.success("Automation Created!", { description: `Trigger: ${trigger}` })
+        toast.success("Automation Created!", { description: `Triggers: ${triggers.join(", ")}` })
 
         // Reset Form
         setName("")
-        setTrigger("")
+        setTriggers([])
+        setReplyToAll(false)
         setMessageText("")
         setCardTitle("")
         setCardSubtitle("")
@@ -174,13 +181,15 @@ export function CreateRuleForm({ userId, onSuccess }: CreateRuleFormProps) {
             placeholder="e.g. Welcome Menu"
           />
         </div>
-        <div className="space-y-2">
-          <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Trigger Keyword</Label>
-          <Input
-            value={trigger}
-            onChange={(e) => setTrigger(e.target.value)}
-            className="bg-black/20 border-white/10 text-purple-400 font-medium focus:bg-white/5 transition-colors placeholder:text-muted-foreground/50"
-            placeholder="e.g. hello"
+        <div className="space-y-2 col-span-2">
+          <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">
+            Trigger Keywords
+            <span className="text-muted-foreground/60 font-normal ml-2">(Press Enter or comma to add)</span>
+          </Label>
+          <TagInput
+            value={triggers}
+            onChange={setTriggers}
+            placeholder="e.g. hello, hi, hey"
           />
         </div>
       </div>
@@ -192,6 +201,17 @@ export function CreateRuleForm({ userId, onSuccess }: CreateRuleFormProps) {
             <Lock className="w-3.5 h-3.5" /> Follow Gate
           </Label>
           <p className="text-[10px] text-muted-foreground mt-0.5">User must follow you to see the reply.</p>
+        </div>
+      </div>
+
+      {/* REPLY TO ALL TOGGLE */}
+      <div className="flex items-center gap-3 p-4 rounded-xl border border-blue-500/20 bg-gradient-to-r from-blue-500/5 to-transparent">
+        <Switch checked={replyToAll} onCheckedChange={setReplyToAll} id="reply-all" />
+        <div>
+          <Label htmlFor="reply-all" className="text-sm font-bold text-blue-400 flex items-center gap-2 cursor-pointer">
+            💬 Reply to ALL Comments
+          </Label>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Automatically respond to every comment on the selected post.</p>
         </div>
       </div>
 
@@ -269,8 +289,8 @@ export function CreateRuleForm({ userId, onSuccess }: CreateRuleFormProps) {
                       setShowReelPicker(false)
                     }}
                     className={`relative aspect-square group overflow-hidden focus:outline-none transition-all ${selectedReel?.id === reel.id
-                        ? "ring-4 ring-purple-500 z-10"
-                        : "hover:z-10"
+                      ? "ring-4 ring-purple-500 z-10"
+                      : "hover:z-10"
                       }`}
                   >
                     <img
