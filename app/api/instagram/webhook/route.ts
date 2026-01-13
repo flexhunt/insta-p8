@@ -146,63 +146,63 @@ export async function POST(request: NextRequest) {
                                 a.trigger_type === "keyword" &&
                                 a.trigger_value.split(",").some((k: string) => new RegExp(`\\b${k.trim()}\\b`, "i").test(commentText))
                             )
+                        }
 
-                            // Priority 3: Global Keyword Match (Only if no specific match found)
-                            if (!match) {
-                                match = automations.find(a =>
-                                    !a.specific_media_id && // Must be global
-                                    a.trigger_type === "keyword" &&
-                                    a.trigger_value.split(",").some((k: string) => new RegExp(`\\b${k.trim()}\\b`, "i").test(commentText))
-                                )
-                            }
+                        // Priority 3: Global Keyword Match (Only if no specific match found)
+                        if (!match) {
+                            match = automations.find(a =>
+                                !a.specific_media_id && // Must be global
+                                a.trigger_type === "keyword" &&
+                                a.trigger_value.split(",").some((k: string) => new RegExp(`\\b${k.trim()}\\b`, "i").test(commentText))
+                            )
+                        }
 
-                            if (match) {
-                                console.log(`[v0] ✅ Comment Match: "${match.name}" (ID: ${match.id})`)
-                                const content = match.response_content
-                                const replies = ["Check your DMs! 📥", "Sent! 🔥", "Check inbox! ✨"]
-                                const randomReply = replies[Math.floor(Math.random() * replies.length)]
+                        if (match) {
+                            console.log(`[v0] ✅ Comment Match: "${match.name}" (ID: ${match.id})`)
+                            const content = match.response_content
+                            const replies = ["Check your DMs! 📥", "Sent! 🔥", "Check inbox! ✨"]
+                            const randomReply = replies[Math.floor(Math.random() * replies.length)]
 
-                                // Public Reply
-                                await fetch(
-                                    `https://graph.instagram.com/v24.0/${commentId}/replies?access_token=${encodeURIComponent(user.access_token)}`,
-                                    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: randomReply }) }
-                                ).catch(e => console.error(e))
+                            // Public Reply
+                            await fetch(
+                                `https://graph.instagram.com/v24.0/${commentId}/replies?access_token=${encodeURIComponent(user.access_token)}`,
+                                { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: randomReply }) }
+                            ).catch(e => console.error(e))
 
-                                // Private Reply
-                                let apiBody: any = { recipient: { comment_id: commentId } }
+                            // Private Reply
+                            let apiBody: any = { recipient: { comment_id: commentId } }
 
-                                if (content.message) {
-                                    // Plain Text
-                                    apiBody.message = { text: content.message }
-                                } else if (content.card) {
-                                    // Rich Card / Generic Template
-                                    const card = content.card
-                                    const apiButtons = card.buttons.map((b: any) => ({
-                                        type: b.type,
-                                        title: b.title,
-                                        url: b.url || undefined,
-                                        payload: b.payload || undefined,
-                                    }))
-                                    const element: any = { title: card.title, buttons: apiButtons }
-                                    if (card.subtitle) element.subtitle = card.subtitle
-                                    if (card.image_url && card.image_url.startsWith("http")) element.image_url = card.image_url
+                            if (content.message) {
+                                // Plain Text
+                                apiBody.message = { text: content.message }
+                            } else if (content.card) {
+                                // Rich Card / Generic Template
+                                const card = content.card
+                                const apiButtons = card.buttons.map((b: any) => ({
+                                    type: b.type,
+                                    title: b.title,
+                                    url: b.url || undefined,
+                                    payload: b.payload || undefined,
+                                }))
+                                const element: any = { title: card.title, buttons: apiButtons }
+                                if (card.subtitle) element.subtitle = card.subtitle
+                                if (card.image_url && card.image_url.startsWith("http")) element.image_url = card.image_url
 
-                                    apiBody.message = {
-                                        attachment: {
-                                            type: "template",
-                                            payload: {
-                                                template_type: "generic",
-                                                elements: [element]
-                                            }
+                                apiBody.message = {
+                                    attachment: {
+                                        type: "template",
+                                        payload: {
+                                            template_type: "generic",
+                                            elements: [element]
                                         }
                                     }
                                 }
-
-                                await fetch(
-                                    `https://graph.instagram.com/v24.0/me/messages?access_token=${encodeURIComponent(user.access_token)}`,
-                                    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(apiBody) }
-                                ).catch(e => console.error(e))
                             }
+
+                            await fetch(
+                                `https://graph.instagram.com/v24.0/me/messages?access_token=${encodeURIComponent(user.access_token)}`,
+                                { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(apiBody) }
+                            ).catch(e => console.error(e))
                         }
                     }
                 }
