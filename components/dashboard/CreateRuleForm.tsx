@@ -388,7 +388,7 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
               </button>
 
               {showReelPicker && (
-                <ReelPicker userId={userId} storiesOnly={true} onSelect={(reel: any) => {
+                <ReelPicker userId={userId} onSelect={(reel: any) => {
                   setSelectedReel(reel)
                   setShowReelPicker(false)
                 }} />
