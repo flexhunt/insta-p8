@@ -15,11 +15,18 @@ export async function GET(request: NextRequest) {
 
     try {
         // 1. Get Due Schedules
-        const { data: configs } = await supabase
+        const force = request.nextUrl.searchParams.get("force") === "true"
+
+        let query = supabase
             .from("scheduler_config")
             .select("*")
             .eq("is_running", true)
-            .lte("next_run_at", new Date().toISOString())
+
+        if (!force) {
+            query = query.lte("next_run_at", new Date().toISOString())
+        }
+
+        const { data: configs } = await query
 
         if (!configs || configs.length === 0) {
             return NextResponse.json({ message: "No schedules due", ran: 0 })
