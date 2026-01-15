@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Plus, Trash2, Upload, Play, Film } from "lucide-react"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Loader2, Plus, Trash2, Upload, Film, Link as LinkIcon } from "lucide-react"
 import { toast } from "sonner"
 
 // Initialize Supabase Client for client-side storage upload
@@ -36,6 +37,8 @@ export function ContentPool({ userId }: ContentPoolProps) {
     // New Item State
     const [caption, setCaption] = useState("")
     const [file, setFile] = useState<File | null>(null)
+    const [manualUrl, setManualUrl] = useState("")
+    const [inputType, setInputType] = useState<"file" | "url">("file")
     const [isAdding, setIsAdding] = useState(false)
 
     useEffect(() => {
@@ -58,23 +61,30 @@ export function ContentPool({ userId }: ContentPoolProps) {
     }
 
     const handleUpload = async () => {
-        if (!file) return toast.error("Please select a video file")
+        if (inputType === "file" && !file) return toast.error("Please select a video file")
+        if (inputType === "url" && !manualUrl) return toast.error("Please enter a video URL")
 
         try {
             setUploading(true)
-            const fileExt = file.name.split('.').pop()
-            const fileName = `${userId}/${Date.now()}.${fileExt}`
+            let finalVideoUrl = manualUrl
 
-            // 1. Upload to Supabase Storage
-            const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('reels')
-                .upload(fileName, file)
+            if (inputType === "file" && file) {
+                const fileExt = file.name.split('.').pop()
+                const fileName = `${userId}/${Date.now()}.${fileExt}`
 
-            if (uploadError) throw uploadError
+                // 1. Upload to Supabase Storage
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('reels')
+                    .upload(fileName, file)
 
-            const { data: { publicUrl } } = supabase.storage
-                .from('reels')
-                .getPublicUrl(fileName)
+                if (uploadError) throw uploadError
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('reels')
+                    .getPublicUrl(fileName)
+
+                finalVideoUrl = publicUrl
+            }
 
             // 2. Save to DB
             const res = await fetch('/api/scheduler/pool', {
@@ -82,7 +92,7 @@ export function ContentPool({ userId }: ContentPoolProps) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     userId,
-                    video_url: publicUrl,
+                    video_url: finalVideoUrl,
                     caption
                 })
             })
@@ -91,6 +101,7 @@ export function ContentPool({ userId }: ContentPoolProps) {
 
             toast.success("Clip added to pool!")
             setFile(null)
+            setManualUrl("")
             setCaption("")
             setIsAdding(false)
             loadPool()
@@ -131,20 +142,47 @@ export function ContentPool({ userId }: ContentPoolProps) {
             {isAdding && (
                 <Card className="bg-white/5 border-white/10">
                     <CardContent className="p-4 space-y-4">
-                        <div className="border-2 border-dashed border-white/20 rounded-lg p-8 text-center hover:bg-white/5 transition-colors cursor-pointer relative">
-                            <input
-                                type="file"
-                                accept="video/mp4,video/quicktime"
-                                onChange={(e) => setFile(e.target.files?.[0] || null)}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                            />
-                            <div className="flex flex-col items-center gap-2">
-                                <Upload className="w-8 h-8 text-neutral-400" />
-                                <p className="text-sm text-neutral-300">
-                                    {file ? file.name : "Drag & drop or click to upload video (MP4)"}
-                                </p>
-                            </div>
-                        </div>
+                        <Tabs defaultValue="file" onValueChange={(v) => setInputType(v as "file" | "url")}>
+                            <TabsList className="grid w-full grid-cols-2 bg-black/40">
+                                <TabsTrigger value="file">File Upload</TabsTrigger>
+                                <TabsTrigger value="url">Direct Link</TabsTrigger>
+                            </TabsList>
+
+                            <TabsContent value="file" className="mt-4">
+                                <div className="border-2 border-dashed border-white/20 rounded-lg p-8 text-center hover:bg-white/5 transition-colors cursor-pointer relative">
+                                    <input
+                                        type="file"
+                                        accept="video/mp4,video/quicktime"
+                                        onChange={(e) => setFile(e.target.files?.[0] || null)}
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                    />
+                                    <div className="flex flex-col items-center gap-2">
+                                        <Upload className="w-8 h-8 text-neutral-400" />
+                                        <p className="text-sm text-neutral-300">
+                                            {file ? file.name : "Drag & drop or click to upload video (MP4)"}
+                                        </p>
+                                    </div>
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="url" className="mt-4">
+                                <div className="space-y-2">
+                                    <label className="text-xs text-neutral-400 uppercase font-semibold">Video URL</label>
+                                    <div className="relative">
+                                        <LinkIcon className="absolute left-3 top-3 w-4 h-4 text-neutral-500" />
+                                        <Input
+                                            placeholder="https://example.com/video.mp4"
+                                            value={manualUrl}
+                                            onChange={(e) => setManualUrl(e.target.value)}
+                                            className="pl-9 bg-black/20 border-white/10"
+                                        />
+                                    </div>
+                                    <p className="text-xs text-neutral-500">
+                                        Provide a direct link to an MP4 file hosted elsewhere.
+                                    </p>
+                                </div>
+                            </TabsContent>
+                        </Tabs>
 
                         <Textarea
                             placeholder="Enter caption for this Reel..."
@@ -153,8 +191,8 @@ export function ContentPool({ userId }: ContentPoolProps) {
                             className="bg-black/20 border-white/10"
                         />
 
-                        <Button onClick={handleUpload} disabled={uploading || !file} className="w-full">
-                            {uploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Upload & Save"}
+                        <Button onClick={handleUpload} disabled={uploading || (inputType === "file" && !file) || (inputType === "url" && !manualUrl)} className="w-full">
+                            {uploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Save to Pool"}
                         </Button>
                     </CardContent>
                 </Card>
