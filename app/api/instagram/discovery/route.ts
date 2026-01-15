@@ -41,7 +41,8 @@ export async function GET(request: NextRequest) {
         // 2. Call Business Discovery API
         // Syntax: GET /{ig-user-id}?fields=business_discovery.username({username}){media{...}}
         const fields = `business_discovery.username(${targetUsername}){media.limit(24){id,caption,media_type,media_url,thumbnail_url,permalink,timestamp}}`
-        const url = `https://graph.instagram.com/v24.0/${businessId}?fields=${fields}&access_token=${user.access_token}`
+        // MUST use graph.facebook.com for Business Discovery (Graph API), NOT graph.instagram.com (Basic Display)
+        const url = `https://graph.facebook.com/v24.0/${businessId}?fields=${fields}&access_token=${user.access_token}`
 
         console.log(`[Discovery] Fetching for target: ${targetUsername} via ID: ${businessId}`)
 
