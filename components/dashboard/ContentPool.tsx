@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Loader2, Plus, Trash2, Upload, Film, Link as LinkIcon, CheckCircle, FileJson, Instagram } from "lucide-react"
+import { Loader2, Plus, Trash2, Upload, Film, Link as LinkIcon, CheckCircle, FileJson, Instagram, Search } from "lucide-react"
 import { toast } from "sonner"
 
 // Initialize Supabase Client for client-side storage upload
@@ -47,7 +47,7 @@ export function ContentPool({ userId }: ContentPoolProps) {
     const [files, setFiles] = useState<File[]>([])
     const [manualUrl, setManualUrl] = useState("")
     const [jsonInput, setJsonInput] = useState("")
-    const [inputType, setInputType] = useState<"file" | "url" | "instagram" | "json">("file")
+    const [inputType, setInputType] = useState<"file" | "url" | "instagram" | "json" | "spy">("file")
     const [isAdding, setIsAdding] = useState(false)
     const [progress, setProgress] = useState("")
 
@@ -55,6 +55,10 @@ export function ContentPool({ userId }: ContentPoolProps) {
     const [igMedia, setIgMedia] = useState<ExternalMedia[]>([])
     const [selectedIgMedia, setSelectedIgMedia] = useState<string[]>([])
     const [loadingIg, setLoadingIg] = useState(false)
+
+    // Spy State
+    const [spyTarget, setSpyTarget] = useState("")
+    const [loadingSpy, setLoadingSpy] = useState(false)
 
     useEffect(() => {
         if (userId) loadPool()
@@ -78,17 +82,37 @@ export function ContentPool({ userId }: ContentPoolProps) {
     const loadInstagramMedia = async () => {
         try {
             setLoadingIg(true)
+            // Empty target params implies "me" in traditional endpoint, but standard endpoint handles "me"
             const res = await fetch(`/api/instagram/media?userId=${userId}`)
             if (res.ok) {
                 const data = await res.json()
                 setIgMedia(data.data || [])
             } else {
-                toast.error("Failed to fetch Instagram media. Login required.")
+                toast.error("Failed to fetch media")
             }
         } catch (err) {
             toast.error("Error loading Instagram media")
         } finally {
             setLoadingIg(false)
+        }
+    }
+
+    const loadSpyMedia = async () => {
+        if (!spyTarget) return toast.error("Enter a username")
+        try {
+            setLoadingSpy(true)
+            const res = await fetch(`/api/instagram/discovery?userId=${userId}&target=${spyTarget}`)
+            const data = await res.json()
+            if (res.ok) {
+                setIgMedia(data.data || [])
+                if (data.data?.length === 0) toast.info("No media found or private account")
+            } else {
+                toast.error(data.error || "Failed to spy")
+            }
+        } catch (err) {
+            toast.error("Spy failed")
+        } finally {
+            setLoadingSpy(false)
         }
     }
 
@@ -131,8 +155,8 @@ export function ContentPool({ userId }: ContentPoolProps) {
                 toast.success(`Imported ${successCount} items from JSON`)
             }
 
-            // 2. Instagram Import
-            else if (inputType === "instagram") {
+            // 2. Instagram & Spy Import (Both populate igMedia)
+            else if (inputType === "instagram" || inputType === "spy") {
                 let successCount = 0
                 const toImport = igMedia.filter(m => selectedIgMedia.includes(m.id))
 
@@ -147,7 +171,7 @@ export function ContentPool({ userId }: ContentPoolProps) {
                     })
                     if (res.ok) successCount++
                 }
-                toast.success(`Imported ${successCount} Reels from Instagram`)
+                toast.success(`Imported ${successCount} Reels`)
                 setSelectedIgMedia([])
             }
 
@@ -250,10 +274,12 @@ export function ContentPool({ userId }: ContentPoolProps) {
                         <Tabs defaultValue="file" onValueChange={(v) => {
                             setInputType(v as any)
                             if (v === 'instagram') loadInstagramMedia()
+                            if (v === 'spy') setIgMedia([]) // Clear for spy search
                         }}>
-                            <TabsList className="grid w-full grid-cols-4 bg-black/40">
-                                <TabsTrigger value="file">Batch Upload</TabsTrigger>
-                                <TabsTrigger value="instagram">Instagram</TabsTrigger>
+                            <TabsList className="grid w-full grid-cols-5 bg-black/40">
+                                <TabsTrigger value="file">Files</TabsTrigger>
+                                <TabsTrigger value="instagram">My Reels</TabsTrigger>
+                                <TabsTrigger value="spy">Spy / Analyze</TabsTrigger>
                                 <TabsTrigger value="url">Link</TabsTrigger>
                                 <TabsTrigger value="json">JSON</TabsTrigger>
                             </TabsList>
@@ -281,35 +307,35 @@ export function ContentPool({ userId }: ContentPoolProps) {
                             <TabsContent value="instagram" className="mt-4">
                                 {loadingIg ? (
                                     <div className="text-center py-8"><Loader2 className="animate-spin mx-auto w-6 h-6 text-neutral-500" /></div>
-                                ) : igMedia.length === 0 ? (
-                                    <div className="text-center py-8 text-neutral-500">No media found or permission denied.</div>
                                 ) : (
-                                    <div className="grid grid-cols-3 gap-2 max-h-[300px] overflow-y-auto pr-2">
-                                        {igMedia.map(media => {
-                                            const isSelected = selectedIgMedia.includes(media.id)
-                                            return (
-                                                <div
-                                                    key={media.id}
-                                                    onClick={() => toggleIgSelection(media.id)}
-                                                    className={`
-                                                        aspect-square relative cursor-pointer rounded-md overflow-hidden border-2
-                                                        ${isSelected ? 'border-blue-500' : 'border-transparent'}
-                                                    `}
-                                                >
-                                                    {media.media_type === "VIDEO" || media.media_type === "REELS" ? (
-                                                        <video src={media.media_url} className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <img src={media.media_url} className="w-full h-full object-cover" />
-                                                    )}
-                                                    {isSelected && (
-                                                        <div className="absolute inset-0 bg-blue-500/30 flex items-center justify-center">
-                                                            <CheckCircle className="text-white w-8 h-8 shadow-lg" />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )
-                                        })}
+                                    <MediaGrid media={igMedia} selected={selectedIgMedia} onToggle={toggleIgSelection} />
+                                )}
+                                <p className="text-xs text-neutral-500 mt-2 text-center">
+                                    {selectedIgMedia.length} items selected
+                                </p>
+                            </TabsContent>
+
+                            {/* SPY / ANALYZE */}
+                            <TabsContent value="spy" className="mt-4 space-y-4">
+                                <div className="flex gap-2">
+                                    <div className="relative flex-1">
+                                        <Search className="absolute left-3 top-3 w-4 h-4 text-neutral-500" />
+                                        <Input
+                                            placeholder="Enter username (e.g. nike)"
+                                            value={spyTarget}
+                                            onChange={(e) => setSpyTarget(e.target.value)}
+                                            className="pl-9 bg-black/20 border-white/10"
+                                        />
                                     </div>
+                                    <Button onClick={loadSpyMedia} disabled={loadingSpy || !spyTarget}>
+                                        {loadingSpy ? <Loader2 className="animate-spin" /> : "Search"}
+                                    </Button>
+                                </div>
+
+                                {loadingSpy ? (
+                                    <div className="text-center py-8"><Loader2 className="animate-spin mx-auto w-6 h-6 text-neutral-500" /></div>
+                                ) : (
+                                    <MediaGrid media={igMedia} selected={selectedIgMedia} onToggle={toggleIgSelection} />
                                 )}
                                 <p className="text-xs text-neutral-500 mt-2 text-center">
                                     {selectedIgMedia.length} items selected
@@ -404,6 +430,38 @@ export function ContentPool({ userId }: ContentPoolProps) {
                     ))}
                 </div>
             )}
+        </div>
+    )
+}
+
+function MediaGrid({ media, selected, onToggle }: { media: ExternalMedia[], selected: string[], onToggle: (id: string) => void }) {
+    if (media.length === 0) return <div className="text-center py-8 text-neutral-500">No media found.</div>
+    return (
+        <div className="grid grid-cols-3 gap-2 max-h-[300px] overflow-y-auto pr-2">
+            {media.map(item => {
+                const isSelected = selected.includes(item.id)
+                return (
+                    <div
+                        key={item.id}
+                        onClick={() => onToggle(item.id)}
+                        className={`
+                            aspect-square relative cursor-pointer rounded-md overflow-hidden border-2
+                            ${isSelected ? 'border-blue-500' : 'border-transparent'}
+                        `}
+                    >
+                        {item.media_type === "VIDEO" || item.media_type === "REELS" ? (
+                            <video src={item.media_url} className="w-full h-full object-cover" />
+                        ) : (
+                            <img src={item.media_url || item.thumbnail_url} className="w-full h-full object-cover" />
+                        )}
+                        {isSelected && (
+                            <div className="absolute inset-0 bg-blue-500/30 flex items-center justify-center">
+                                <CheckCircle className="text-white w-8 h-8 shadow-lg" />
+                            </div>
+                        )}
+                    </div>
+                )
+            })}
         </div>
     )
 }
