@@ -3,7 +3,7 @@
 import type React from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Instagram, LayoutDashboard, Zap, LogOut, Settings, BarChart3, MessageSquare, Snowflake } from "lucide-react"
+import { Instagram, LayoutDashboard, Zap, LogOut, Settings, BarChart3, MessageSquare, Snowflake, Clapperboard } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
@@ -45,6 +45,13 @@ export function Sidebar({ className, username = "Demo User", onLogout, onNavigat
           icon={<Zap className="w-4 h-4" />}
           label="Automations"
           active={isActive("/dashboard/automations")}
+          onClick={onNavigate}
+        />
+        <NavItem
+          href="/dashboard/publisher"
+          icon={<Clapperboard className="w-4 h-4" />}
+          label="Publisher"
+          active={isActive("/dashboard/publisher")}
           onClick={onNavigate}
         />
         <NavItem
@@ -124,9 +131,8 @@ function NavItem({
     <Link
       href={href}
       onClick={onClick}
-      className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all font-medium text-[13px] group relative overflow-hidden ${
-        active ? "bg-white text-black shadow-none" : "text-neutral-500 hover:text-white hover:bg-white/5"
-      }`}
+      className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all font-medium text-[13px] group relative overflow-hidden ${active ? "bg-white text-black shadow-none" : "text-neutral-500 hover:text-white hover:bg-white/5"
+        }`}
     >
       {active && (
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] animate-shimmer" />
