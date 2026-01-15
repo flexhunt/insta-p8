@@ -17,7 +17,9 @@ export async function GET(request: NextRequest) {
         let businessId = ""
 
         // 1. Check for Master Spy Token (Env Var) - Priority #1
-        const spyToken = process.env.INSTAGRAM_SPY_TOKEN
+        const spyTokenRaw = process.env.INSTAGRAM_SPY_TOKEN
+        const spyToken = spyTokenRaw ? spyTokenRaw.trim().replace(/^"|"$/g, '') : null // Remove quotes if user added them in .env
+
         if (spyToken) {
             console.log("[Discovery] Using Master Spy Token")
             accessToken = spyToken
