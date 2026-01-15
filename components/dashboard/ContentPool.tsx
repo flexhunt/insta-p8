@@ -36,10 +36,11 @@ export function ContentPool({ userId }: ContentPoolProps) {
 
     // New Item State
     const [caption, setCaption] = useState("")
-    const [file, setFile] = useState<File | null>(null)
+    const [files, setFiles] = useState<File[]>([])
     const [manualUrl, setManualUrl] = useState("")
     const [inputType, setInputType] = useState<"file" | "url">("file")
     const [isAdding, setIsAdding] = useState(false)
+    const [progress, setProgress] = useState("")
 
     useEffect(() => {
         if (userId) loadPool()
@@ -61,55 +62,83 @@ export function ContentPool({ userId }: ContentPoolProps) {
     }
 
     const handleUpload = async () => {
-        if (inputType === "file" && !file) return toast.error("Please select a video file")
+        if (inputType === "file" && files.length === 0) return toast.error("Please select video files")
         if (inputType === "url" && !manualUrl) return toast.error("Please enter a video URL")
 
+        setUploading(true)
+        setProgress("")
+
         try {
-            setUploading(true)
-            let finalVideoUrl = manualUrl
+            if (inputType === "url") {
+                // Single URL Upload
+                const res = await fetch('/api/scheduler/pool', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId,
+                        video_url: manualUrl,
+                        caption
+                    })
+                })
+                if (!res.ok) throw new Error("Failed to save URL to database")
+            } else {
+                // Bulk File Upload
+                let successCount = 0
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i]
+                    setProgress(`Uploading ${i + 1}/${files.length}...`)
 
-            if (inputType === "file" && file) {
-                const fileExt = file.name.split('.').pop()
-                const fileName = `${userId}/${Date.now()}.${fileExt}`
+                    try {
+                        const fileExt = file.name.split('.').pop()
+                        const fileName = `${userId}/${Date.now()}-${i}.${fileExt}`
 
-                // 1. Upload to Supabase Storage
-                const { data: uploadData, error: uploadError } = await supabase.storage
-                    .from('reels')
-                    .upload(fileName, file)
+                        // 1. Upload to Supabase
+                        const { error: uploadError } = await supabase.storage
+                            .from('reels')
+                            .upload(fileName, file)
 
-                if (uploadError) throw uploadError
+                        if (uploadError) throw uploadError
 
-                const { data: { publicUrl } } = supabase.storage
-                    .from('reels')
-                    .getPublicUrl(fileName)
+                        const { data: { publicUrl } } = supabase.storage
+                            .from('reels')
+                            .getPublicUrl(fileName)
 
-                finalVideoUrl = publicUrl
+                        // 2. Save to DB
+                        // Use filename as default caption if caption is empty, or use shared caption
+                        const finalCaption = caption || file.name.replace(/\.[^/.]+$/, "")
+
+                        const res = await fetch('/api/scheduler/pool', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                userId,
+                                video_url: publicUrl,
+                                caption: finalCaption
+                            })
+                        })
+
+                        if (!res.ok) throw new Error("Failed to save to database")
+                        successCount++
+
+                    } catch (err) {
+                        console.error(`Failed to upload ${file.name}`, err)
+                        toast.error(`Failed to upload ${file.name}`)
+                    }
+                }
+                toast.success(`Successfully added ${successCount} clips!`)
             }
 
-            // 2. Save to DB
-            const res = await fetch('/api/scheduler/pool', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId,
-                    video_url: finalVideoUrl,
-                    caption
-                })
-            })
-
-            if (!res.ok) throw new Error("Failed to save to database")
-
-            toast.success("Clip added to pool!")
-            setFile(null)
+            setFiles([])
             setManualUrl("")
             setCaption("")
             setIsAdding(false)
             loadPool()
 
         } catch (err: any) {
-            toast.error("Upload failed", { description: err.message })
+            toast.error("Upload process failed", { description: err.message })
         } finally {
             setUploading(false)
+            setProgress("")
         }
     }
 
@@ -131,11 +160,11 @@ export function ContentPool({ userId }: ContentPoolProps) {
                 <div>
                     <h3 className="text-lg font-medium text-white">Content Pool</h3>
                     <p className="text-sm text-neutral-500">
-                        Upload clips to cycle through. Order is determined by upload time.
+                        Upload multiple clips. Sequence is determined by upload order.
                     </p>
                 </div>
                 <Button onClick={() => setIsAdding(!isAdding)} variant={isAdding ? "secondary" : "default"}>
-                    {isAdding ? "Cancel" : <><Plus className="w-4 h-4 mr-2" /> Add Clip</>}
+                    {isAdding ? "Cancel" : <><Plus className="w-4 h-4 mr-2" /> Add Clips</>}
                 </Button>
             </div>
 
@@ -144,23 +173,32 @@ export function ContentPool({ userId }: ContentPoolProps) {
                     <CardContent className="p-4 space-y-4">
                         <Tabs defaultValue="file" onValueChange={(v) => setInputType(v as "file" | "url")}>
                             <TabsList className="grid w-full grid-cols-2 bg-black/40">
-                                <TabsTrigger value="file">File Upload</TabsTrigger>
-                                <TabsTrigger value="url">Direct Link</TabsTrigger>
+                                <TabsTrigger value="file">Batch Upload</TabsTrigger>
+                                <TabsTrigger value="url">Single Link</TabsTrigger>
                             </TabsList>
 
                             <TabsContent value="file" className="mt-4">
                                 <div className="border-2 border-dashed border-white/20 rounded-lg p-8 text-center hover:bg-white/5 transition-colors cursor-pointer relative">
                                     <input
                                         type="file"
+                                        multiple
                                         accept="video/mp4,video/quicktime"
-                                        onChange={(e) => setFile(e.target.files?.[0] || null)}
+                                        onChange={(e) => setFiles(Array.from(e.target.files || []))}
                                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                     />
                                     <div className="flex flex-col items-center gap-2">
                                         <Upload className="w-8 h-8 text-neutral-400" />
                                         <p className="text-sm text-neutral-300">
-                                            {file ? file.name : "Drag & drop or click to upload video (MP4)"}
+                                            {files.length > 0
+                                                ? `${files.length} files selected`
+                                                : "Drag & drop multiple videos (MP4)"}
                                         </p>
+                                        {files.length > 0 && (
+                                            <p className="text-xs text-neutral-500">
+                                                {files.map(f => f.name).slice(0, 3).join(", ")}
+                                                {files.length > 3 && ` +${files.length - 3} more`}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                             </TabsContent>
@@ -178,21 +216,28 @@ export function ContentPool({ userId }: ContentPoolProps) {
                                         />
                                     </div>
                                     <p className="text-xs text-neutral-500">
-                                        Provide a direct link to an MP4 file hosted elsewhere.
+                                        Provide a direct link to a single MP4 file.
                                     </p>
                                 </div>
                             </TabsContent>
                         </Tabs>
 
                         <Textarea
-                            placeholder="Enter caption for this Reel..."
+                            placeholder="Shared caption (optional). If empty, filename will be used."
                             value={caption}
                             onChange={(e) => setCaption(e.target.value)}
                             className="bg-black/20 border-white/10"
                         />
 
-                        <Button onClick={handleUpload} disabled={uploading || (inputType === "file" && !file) || (inputType === "url" && !manualUrl)} className="w-full">
-                            {uploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Save to Pool"}
+                        <Button onClick={handleUpload} disabled={uploading || (inputType === "file" && files.length === 0) || (inputType === "url" && !manualUrl)} className="w-full">
+                            {uploading ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                    {progress || "Processing..."}
+                                </>
+                            ) : (
+                                inputType === "file" ? `Upload ${files.length} Clips` : "Save Link"
+                            )}
                         </Button>
                     </CardContent>
                 </Card>
