@@ -129,14 +129,15 @@ export async function GET(request: NextRequest) {
                 // B. Wait for Processing (Simple Polling)
                 let status = 'IN_PROGRESS'
                 let attempts = 0
-                while (status === 'IN_PROGRESS' && attempts < 10) {
-                    await delay(3000) // Wait 3s
+                // Increase timeout to ~2 minutes (24 * 5s)
+                while (status === 'IN_PROGRESS' && attempts < 24) {
+                    await delay(5000) // Wait 5s
                     status = await getContainerStatus(user.access_token, containerId)
                     attempts++
                 }
 
                 if (status !== 'FINISHED') {
-                    throw new Error(`Media processing failed or timed out. Status: ${status}`)
+                    throw new Error(`Media processing failed or timed out after 2 minutes. Final Status: ${status}`)
                 }
 
                 // C. Publish
