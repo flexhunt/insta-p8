@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Loader2, Plus, Trash2, Upload, Film, Link as LinkIcon } from "lucide-react"
+import { Loader2, Plus, Trash2, Upload, Film, Link as LinkIcon, CheckCircle, FileJson, Instagram } from "lucide-react"
 import { toast } from "sonner"
 
 // Initialize Supabase Client for client-side storage upload
@@ -25,6 +25,14 @@ interface ContentItem {
     is_active: boolean
 }
 
+interface ExternalMedia {
+    id: string
+    media_url: string
+    caption: string
+    thumbnail_url?: string
+    media_type?: string
+}
+
 interface ContentPoolProps {
     userId: string
 }
@@ -38,9 +46,15 @@ export function ContentPool({ userId }: ContentPoolProps) {
     const [caption, setCaption] = useState("")
     const [files, setFiles] = useState<File[]>([])
     const [manualUrl, setManualUrl] = useState("")
-    const [inputType, setInputType] = useState<"file" | "url">("file")
+    const [jsonInput, setJsonInput] = useState("")
+    const [inputType, setInputType] = useState<"file" | "url" | "instagram" | "json">("file")
     const [isAdding, setIsAdding] = useState(false)
     const [progress, setProgress] = useState("")
+
+    // Instagram Import State
+    const [igMedia, setIgMedia] = useState<ExternalMedia[]>([])
+    const [selectedIgMedia, setSelectedIgMedia] = useState<string[]>([])
+    const [loadingIg, setLoadingIg] = useState(false)
 
     useEffect(() => {
         if (userId) loadPool()
@@ -61,81 +75,143 @@ export function ContentPool({ userId }: ContentPoolProps) {
         }
     }
 
-    const handleUpload = async () => {
-        if (inputType === "file" && files.length === 0) return toast.error("Please select video files")
-        if (inputType === "url" && !manualUrl) return toast.error("Please enter a video URL")
+    const loadInstagramMedia = async () => {
+        try {
+            setLoadingIg(true)
+            const res = await fetch(`/api/instagram/media?userId=${userId}`)
+            if (res.ok) {
+                const data = await res.json()
+                setIgMedia(data.data || [])
+            } else {
+                toast.error("Failed to fetch Instagram media. Login required.")
+            }
+        } catch (err) {
+            toast.error("Error loading Instagram media")
+        } finally {
+            setLoadingIg(false)
+        }
+    }
 
+    const toggleIgSelection = (id: string) => {
+        if (selectedIgMedia.includes(id)) {
+            setSelectedIgMedia(prev => prev.filter(x => x !== id))
+        } else {
+            setSelectedIgMedia(prev => [...prev, id])
+        }
+    }
+
+    const handleUpload = async () => {
         setUploading(true)
         setProgress("")
 
         try {
-            if (inputType === "url") {
-                // Single URL Upload
-                const res = await fetch('/api/scheduler/pool', {
+            // 1. JSON Import
+            if (inputType === "json") {
+                let parsed: any[] = []
+                try {
+                    parsed = JSON.parse(jsonInput)
+                    if (!Array.isArray(parsed)) throw new Error("Root must be array")
+                } catch (e) {
+                    return toast.error("Invalid JSON format")
+                }
+
+                let successCount = 0
+                for (let i = 0; i < parsed.length; i++) {
+                    const item = parsed[i]
+                    if (!item.video_url) continue
+                    setProgress(`Importing ${i + 1}/${parsed.length}...`)
+
+                    const res = await fetch('/api/scheduler/import-instagram', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId, videoUrl: item.video_url, caption: item.caption || caption })
+                    })
+                    if (res.ok) successCount++
+                }
+                toast.success(`Imported ${successCount} items from JSON`)
+            }
+
+            // 2. Instagram Import
+            else if (inputType === "instagram") {
+                let successCount = 0
+                const toImport = igMedia.filter(m => selectedIgMedia.includes(m.id))
+
+                for (let i = 0; i < toImport.length; i++) {
+                    const item = toImport[i]
+                    setProgress(`Importing ${i + 1}/${toImport.length}...`)
+
+                    const res = await fetch('/api/scheduler/import-instagram', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId, videoUrl: item.media_url, caption: caption || item.caption })
+                    })
+                    if (res.ok) successCount++
+                }
+                toast.success(`Imported ${successCount} Reels from Instagram`)
+                setSelectedIgMedia([])
+            }
+
+            // 3. Single URL
+            else if (inputType === "url") {
+                if (!manualUrl) return toast.error("Enter URL")
+                const res = await fetch('/api/scheduler/import-instagram', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        userId,
-                        video_url: manualUrl,
-                        caption
-                    })
+                    body: JSON.stringify({ userId, videoUrl: manualUrl, caption })
                 })
-                if (!res.ok) throw new Error("Failed to save URL to database")
-            } else {
-                // Bulk File Upload
+                if (!res.ok) throw new Error("Failed to import URL")
+                toast.success("URL imported successfully")
+            }
+
+            // 4. File Upload (Client-side)
+            else {
+                if (files.length === 0) return toast.error("Select files")
                 let successCount = 0
                 for (let i = 0; i < files.length; i++) {
                     const file = files[i]
                     setProgress(`Uploading ${i + 1}/${files.length}...`)
 
-                    try {
-                        const fileExt = file.name.split('.').pop()
-                        const fileName = `${userId}/${Date.now()}-${i}.${fileExt}`
+                    const fileExt = file.name.split('.').pop()
+                    const fileName = `${userId}/${Date.now()}-${i}.${fileExt}`
 
-                        // 1. Upload to Supabase
-                        const { error: uploadError } = await supabase.storage
-                            .from('reels')
-                            .upload(fileName, file)
+                    const { error: uploadError } = await supabase.storage
+                        .from('reels')
+                        .upload(fileName, file)
 
-                        if (uploadError) throw uploadError
+                    if (uploadError) throw uploadError
 
-                        const { data: { publicUrl } } = supabase.storage
-                            .from('reels')
-                            .getPublicUrl(fileName)
+                    const { data: { publicUrl } } = supabase.storage
+                        .from('reels')
+                        .getPublicUrl(fileName)
 
-                        // 2. Save to DB
-                        // Use filename as default caption if caption is empty, or use shared caption
-                        const finalCaption = caption || file.name.replace(/\.[^/.]+$/, "")
+                    const finalCaption = caption || file.name.replace(/\.[^/.]+$/, "")
 
-                        const res = await fetch('/api/scheduler/pool', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                userId,
-                                video_url: publicUrl,
-                                caption: finalCaption
-                            })
+                    const res = await fetch('/api/scheduler/pool', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            userId,
+                            video_url: publicUrl,
+                            caption: finalCaption
                         })
+                    })
 
-                        if (!res.ok) throw new Error("Failed to save to database")
-                        successCount++
-
-                    } catch (err) {
-                        console.error(`Failed to upload ${file.name}`, err)
-                        toast.error(`Failed to upload ${file.name}`)
-                    }
+                    if (!res.ok) throw new Error("Db Error")
+                    successCount++
                 }
-                toast.success(`Successfully added ${successCount} clips!`)
+                toast.success(`Uploaded ${successCount} files`)
             }
 
+            // Reset
             setFiles([])
             setManualUrl("")
+            setJsonInput("")
             setCaption("")
             setIsAdding(false)
             loadPool()
 
         } catch (err: any) {
-            toast.error("Upload process failed", { description: err.message })
+            toast.error("Process failed", { description: err.message })
         } finally {
             setUploading(false)
             setProgress("")
@@ -160,7 +236,7 @@ export function ContentPool({ userId }: ContentPoolProps) {
                 <div>
                     <h3 className="text-lg font-medium text-white">Content Pool</h3>
                     <p className="text-sm text-neutral-500">
-                        Upload multiple clips. Sequence is determined by upload order.
+                        Manage your reels queue.
                     </p>
                 </div>
                 <Button onClick={() => setIsAdding(!isAdding)} variant={isAdding ? "secondary" : "default"}>
@@ -171,12 +247,18 @@ export function ContentPool({ userId }: ContentPoolProps) {
             {isAdding && (
                 <Card className="bg-white/5 border-white/10">
                     <CardContent className="p-4 space-y-4">
-                        <Tabs defaultValue="file" onValueChange={(v) => setInputType(v as "file" | "url")}>
-                            <TabsList className="grid w-full grid-cols-2 bg-black/40">
+                        <Tabs defaultValue="file" onValueChange={(v) => {
+                            setInputType(v as any)
+                            if (v === 'instagram') loadInstagramMedia()
+                        }}>
+                            <TabsList className="grid w-full grid-cols-4 bg-black/40">
                                 <TabsTrigger value="file">Batch Upload</TabsTrigger>
-                                <TabsTrigger value="url">Single Link</TabsTrigger>
+                                <TabsTrigger value="instagram">Instagram</TabsTrigger>
+                                <TabsTrigger value="url">Link</TabsTrigger>
+                                <TabsTrigger value="json">JSON</TabsTrigger>
                             </TabsList>
 
+                            {/* FILE UPLOAD */}
                             <TabsContent value="file" className="mt-4">
                                 <div className="border-2 border-dashed border-white/20 rounded-lg p-8 text-center hover:bg-white/5 transition-colors cursor-pointer relative">
                                     <input
@@ -189,54 +271,91 @@ export function ContentPool({ userId }: ContentPoolProps) {
                                     <div className="flex flex-col items-center gap-2">
                                         <Upload className="w-8 h-8 text-neutral-400" />
                                         <p className="text-sm text-neutral-300">
-                                            {files.length > 0
-                                                ? `${files.length} files selected`
-                                                : "Drag & drop multiple videos (MP4)"}
+                                            {files.length > 0 ? `${files.length} files selected` : "Select MP4 Files"}
                                         </p>
-                                        {files.length > 0 && (
-                                            <p className="text-xs text-neutral-500">
-                                                {files.map(f => f.name).slice(0, 3).join(", ")}
-                                                {files.length > 3 && ` +${files.length - 3} more`}
-                                            </p>
-                                        )}
                                     </div>
                                 </div>
                             </TabsContent>
 
-                            <TabsContent value="url" className="mt-4">
-                                <div className="space-y-2">
-                                    <label className="text-xs text-neutral-400 uppercase font-semibold">Video URL</label>
-                                    <div className="relative">
-                                        <LinkIcon className="absolute left-3 top-3 w-4 h-4 text-neutral-500" />
-                                        <Input
-                                            placeholder="https://example.com/video.mp4"
-                                            value={manualUrl}
-                                            onChange={(e) => setManualUrl(e.target.value)}
-                                            className="pl-9 bg-black/20 border-white/10"
-                                        />
+                            {/* INSTAGRAM IMPORT */}
+                            <TabsContent value="instagram" className="mt-4">
+                                {loadingIg ? (
+                                    <div className="text-center py-8"><Loader2 className="animate-spin mx-auto w-6 h-6 text-neutral-500" /></div>
+                                ) : igMedia.length === 0 ? (
+                                    <div className="text-center py-8 text-neutral-500">No media found or permission denied.</div>
+                                ) : (
+                                    <div className="grid grid-cols-3 gap-2 max-h-[300px] overflow-y-auto pr-2">
+                                        {igMedia.map(media => {
+                                            const isSelected = selectedIgMedia.includes(media.id)
+                                            return (
+                                                <div
+                                                    key={media.id}
+                                                    onClick={() => toggleIgSelection(media.id)}
+                                                    className={`
+                                                        aspect-square relative cursor-pointer rounded-md overflow-hidden border-2
+                                                        ${isSelected ? 'border-blue-500' : 'border-transparent'}
+                                                    `}
+                                                >
+                                                    {media.media_type === "VIDEO" || media.media_type === "REELS" ? (
+                                                        <video src={media.media_url} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <img src={media.media_url} className="w-full h-full object-cover" />
+                                                    )}
+                                                    {isSelected && (
+                                                        <div className="absolute inset-0 bg-blue-500/30 flex items-center justify-center">
+                                                            <CheckCircle className="text-white w-8 h-8 shadow-lg" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )
+                                        })}
                                     </div>
-                                    <p className="text-xs text-neutral-500">
-                                        Provide a direct link to a single MP4 file.
-                                    </p>
+                                )}
+                                <p className="text-xs text-neutral-500 mt-2 text-center">
+                                    {selectedIgMedia.length} items selected
+                                </p>
+                            </TabsContent>
+
+                            {/* URL LINK */}
+                            <TabsContent value="url" className="mt-4">
+                                <div className="relative">
+                                    <LinkIcon className="absolute left-3 top-3 w-4 h-4 text-neutral-500" />
+                                    <Input
+                                        placeholder="https://example.com/video.mp4"
+                                        value={manualUrl}
+                                        onChange={(e) => setManualUrl(e.target.value)}
+                                        className="pl-9 bg-black/20 border-white/10"
+                                    />
                                 </div>
+                            </TabsContent>
+
+                            {/* JSON IMPORT */}
+                            <TabsContent value="json" className="mt-4">
+                                <Textarea
+                                    placeholder='[ { "video_url": "...", "caption": "..." } ]'
+                                    className="font-mono text-xs bg-black/30 min-h-[150px]"
+                                    value={jsonInput}
+                                    onChange={(e) => setJsonInput(e.target.value)}
+                                />
+                                <p className="text-xs text-neutral-500 mt-1">Paste a JSON array of objects with video_url and caption.</p>
                             </TabsContent>
                         </Tabs>
 
                         <Textarea
-                            placeholder="Shared caption (optional). If empty, filename will be used."
+                            placeholder="Shared caption (optional). Overrides individual captions."
                             value={caption}
                             onChange={(e) => setCaption(e.target.value)}
                             className="bg-black/20 border-white/10"
                         />
 
-                        <Button onClick={handleUpload} disabled={uploading || (inputType === "file" && files.length === 0) || (inputType === "url" && !manualUrl)} className="w-full">
+                        <Button onClick={handleUpload} disabled={uploading} className="w-full">
                             {uploading ? (
                                 <>
                                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
                                     {progress || "Processing..."}
                                 </>
                             ) : (
-                                inputType === "file" ? `Upload ${files.length} Clips` : "Save Link"
+                                "Start Import / Upload"
                             )}
                         </Button>
                     </CardContent>
