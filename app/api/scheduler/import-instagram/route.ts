@@ -4,7 +4,7 @@ import { getSupabaseServerClient } from "@/lib/supabase-server"
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
-        const { userId, videoUrl, caption } = body
+        const { userId, videoUrl, caption, thumbnailUrl } = body
 
         if (!userId || !videoUrl) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -61,7 +61,8 @@ export async function POST(request: NextRequest) {
                 video_url: publicUrl, // The permanent Supabase URL
                 caption: caption || "",
                 sequence_index: nextSeq,
-                is_active: true
+                is_active: true,
+                thumbnail_url: thumbnailUrl || null
             })
             .select()
             .single()
