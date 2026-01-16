@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
-        const { userId, video_url, caption, thumbnail_url } = body
+        const { userId, video_url, caption, cover_url } = body
 
         if (!userId || !video_url) return NextResponse.json({ error: "Missing fields" }, { status: 400 })
 
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
                 video_url,
                 caption,
                 sequence_index: nextSeq,
-                thumbnail_url: thumbnail_url || null
+                cover_url: cover_url || null
             })
             .select()
             .single()

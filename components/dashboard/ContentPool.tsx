@@ -23,6 +23,7 @@ interface ContentItem {
     caption: string
     sequence_index: number
     is_active: boolean
+    cover_url?: string
 }
 
 interface ExternalMedia {
@@ -271,7 +272,7 @@ export function ContentPool({ userId }: ContentPoolProps) {
                     const item = toImport[i]
                     let finalVideoUrl = item.media_url || item.thumbnail_url
                     // Use designated thumbnail, or fallback to media_url if it's an image/cover
-                    const finalThumbnailUrl = item.thumbnail_url || item.media_url
+                    const finalCoverUrl = item.thumbnail_url || item.media_url
 
                     // SAFE MODE LOGIC
                     if (isSafeMode) {
@@ -309,7 +310,7 @@ export function ContentPool({ userId }: ContentPoolProps) {
                             userId,
                             videoUrl: finalVideoUrl,
                             caption: caption || item.caption,
-                            thumbnailUrl: finalThumbnailUrl
+                            coverUrl: finalCoverUrl
                         })
                     })
                     if (res.ok) {
@@ -328,14 +329,18 @@ export function ContentPool({ userId }: ContentPoolProps) {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId, videoUrl: manualUrl, caption })
                 })
-                if (!res.ok) throw new Error("Failed to import URL")
-                toast.success("URL imported successfully")
+                if (res.ok) {
+                    toast.success("URL imported successfully")
+                    setManualUrl("")
+                } else {
+                    toast.error("Import failed")
+                }
             }
 
             // 4. File Upload (Client-side)
-            else {
-                if (files.length === 0) return toast.error("Select files")
-                let successCount = 0
+            else if (inputType === "file") {
+                if (files.length === 0) return toast.error("No files selected")
+
                 for (let i = 0; i < files.length; i++) {
                     const file = files[i]
                     setProgress(`Uploading ${i + 1}/${files.length}...`)
@@ -366,13 +371,12 @@ export function ContentPool({ userId }: ContentPoolProps) {
                     })
 
                     if (!res.ok) throw new Error("Db Error")
-                    successCount++
                 }
-                toast.success(`Uploaded ${successCount} files`)
+                toast.success(`Uploaded ${files.length} files`)
+                setFiles([])
             }
 
             // Reset
-            setFiles([])
             setManualUrl("")
             setJsonInput("")
             setCaption("")
@@ -472,7 +476,7 @@ export function ContentPool({ userId }: ContentPoolProps) {
                                             className="pl-9 bg-black/20 border-white/10"
                                         />
                                     </div>
-                                    <Button onClick={() => loadSpyMedia(manualToken)} disabled={loadingSpy || !spyTarget}>
+                                    <Button onClick={() => loadSpyMedia()} disabled={loadingSpy || !spyTarget}>
                                         {loadingSpy ? <Loader2 className="animate-spin" /> : "Search"}
                                     </Button>
                                 </div>
@@ -482,13 +486,21 @@ export function ContentPool({ userId }: ContentPoolProps) {
                                         {showTokenInput ? "Hide Advanced Options" : "Show Advanced Options (Access Token)"}
                                     </p>
                                     {showTokenInput && (
-                                        <Input
-                                            type="password"
-                                            placeholder="Paste Manual Access Token (Optional)"
-                                            value={manualToken}
-                                            onChange={(e) => setManualToken(e.target.value)}
-                                            className="text-xs font-mono bg-black/20 border-white/10"
-                                        />
+                                        <>
+                                            <Input
+                                                type="password"
+                                                placeholder="Paste Manual Access Token (Optional)"
+                                                value={manualToken}
+                                                onChange={(e) => setManualToken(e.target.value)}
+                                                className="text-xs font-mono bg-black/20 border-white/10"
+                                            />
+                                            <Input
+                                                placeholder="Manual Business ID (Optional)"
+                                                value={manualBusinessId}
+                                                onChange={(e) => setManualBusinessId(e.target.value)}
+                                                className="text-xs font-mono bg-black/20 border-white/10 mt-2"
+                                            />
+                                        </>
                                     )}
 
                                     <div className="flex items-center gap-2 mt-4 border border-green-500/20 bg-green-500/10 p-2 rounded">
@@ -585,6 +597,7 @@ export function ContentPool({ userId }: ContentPoolProps) {
                             <div className="aspect-[9/16] bg-black relative">
                                 <video
                                     src={item.video_url}
+                                    poster={item.cover_url}
                                     className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
                                 />
                                 <Badge className="absolute top-2 left-2 bg-black/60 text-white border-none">

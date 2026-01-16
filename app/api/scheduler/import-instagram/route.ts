@@ -4,11 +4,25 @@ import { getSupabaseServerClient } from "@/lib/supabase-server"
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
-        const { userId, videoUrl, caption, thumbnailUrl } = body
+        const { userId, videoUrl, caption, coverUrl } = body
 
         if (!userId || !videoUrl) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
         }
+
+        const supabase = await getSupabaseServerClient()
+
+        // 1. Download the Video from external URL (Instagram CDN)
+        // ... (omitting unchanged lines for brevity if tool supports it, otherwise providing full context)
+        // But based on previous reads, I need to match the target content exactly.
+        // I will just replace the top destructuring and the insert block.
+
+        // Wait, I can only replace one block or multiple chunks.
+        // Let's replace the whole function or the relevant parts.
+        // The previous replace used a large chunk. I will target the specific areas.
+
+        // Chunk 1: Destructuring
+        // Chunk 2: Insert 
 
         const supabase = await getSupabaseServerClient()
 
@@ -62,7 +76,7 @@ export async function POST(request: NextRequest) {
                 caption: caption || "",
                 sequence_index: nextSeq,
                 is_active: true,
-                thumbnail_url: thumbnailUrl || null
+                cover_url: coverUrl || null
             })
             .select()
             .single()
