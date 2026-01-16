@@ -71,22 +71,27 @@ export async function GET(request: NextRequest) {
 
         // 2. Fallback to Database User Token (if no Spy Token found or Business ID missing)
         if (!accessToken || !businessId) {
-            const { data: user } = await supabase
-                .from("users")
-                .select("access_token, business_account_id, page_id")
-                .eq("id", userId)
-                .single()
+            try {
+                const { data: user } = await supabase
+                    .from("users")
+                    .select("access_token, business_account_id, page_id")
+                    .eq("id", userId)
+                    .single()
 
-            if (!user?.access_token) {
-                return NextResponse.json({ error: "Instagram not connected" }, { status: 401 })
-            }
-            accessToken = user.access_token
+                if (!user?.access_token) {
+                    return NextResponse.json({ error: "Instagram not connected" }, { status: 401 })
+                }
+                accessToken = user.access_token
 
-            // Use Business ID or fallback to Page ID if it looks like a business ID (starts with 1784)
-            // Discovery API REQUIRES a Business ID (IG User ID), not a Token User ID.
-            businessId = user.business_account_id
-            if (!businessId && user.page_id && user.page_id.startsWith("1784")) {
-                businessId = user.page_id
+                // Use Business ID or fallback to Page ID if it looks like a business ID (starts with 1784)
+                // Discovery API REQUIRES a Business ID (IG User ID), not a Token User ID.
+                businessId = user.business_account_id
+                if (!businessId && user.page_id && user.page_id.startsWith("1784")) {
+                    businessId = user.page_id
+                }
+            } catch (err) {
+                console.warn("[Discovery] Database lookup failed (likely invalid User ID format):", err)
+                // Do not crash, just let it proceed to validity check which will fail gracefully
             }
         }
 
