@@ -166,10 +166,13 @@ export function ContentPool({ userId }: ContentPoolProps) {
                     const item = toImport[i]
                     setProgress(`Importing ${i + 1}/${toImport.length}...`)
 
+                    const payload = { userId, videoUrl: item.media_url, caption: caption || item.caption }
+                    console.log("Importing payload:", payload)
+
                     const res = await fetch('/api/scheduler/import-instagram', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ userId, videoUrl: item.media_url, caption: caption || item.caption })
+                        body: JSON.stringify(payload)
                     })
                     if (res.ok) successCount++
                 }
