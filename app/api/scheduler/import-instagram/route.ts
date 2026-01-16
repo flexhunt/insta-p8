@@ -23,13 +23,18 @@ export async function POST(request: NextRequest) {
 
         // 2. Upload to Supabase Storage
         // Generate unique filename
-        const fileExt = "mp4" // Assuming MP4 from IG
-        const fileName = `${userId}/imported_${Date.now()}.${fileExt}`
+        const contentType = vidRes.headers.get("content-type") || "video/mp4"
+        let fileExt = "mp4"
+        if (contentType.includes("image/jpeg")) fileExt = "jpg"
+        else if (contentType.includes("image/png")) fileExt = "png"
+        else if (contentType.includes("image/webp")) fileExt = "webp"
+
+        const fileName = `${userId}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`
 
         const { error: uploadError } = await supabase.storage
             .from('reels')
             .upload(fileName, buffer, {
-                contentType: 'video/mp4',
+                contentType: contentType,
                 upsert: false
             })
 

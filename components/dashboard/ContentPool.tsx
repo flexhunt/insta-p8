@@ -284,7 +284,7 @@ export function ContentPool({ userId }: ContentPoolProps) {
                     const finalCoverUrl = item.thumbnail_url || item.media_url
 
                     // SAFE MODE LOGIC
-                    if (isSafeMode) {
+                    if (isSafeMode && (item.media_type === "VIDEO" || item.media_type === "REELS")) {
                         try {
                             addLog(`Processing Item ${i + 1}/${toImport.length}...`)
                             const safeBlob = await processVideoSafe(finalVideoUrl)
@@ -309,6 +309,8 @@ export function ContentPool({ userId }: ContentPoolProps) {
                             toast.error(`Remix failed for item ${i + 1}`)
                             continue // Skip this item
                         }
+                    } else if (isSafeMode) {
+                        addLog(`Skipping Safe Mode for Non-Video Item ${i + 1}`)
                     }
 
                     setProgress(`Importing ${i + 1}/${toImport.length}...`)
