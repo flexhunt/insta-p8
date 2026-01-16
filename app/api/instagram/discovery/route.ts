@@ -128,7 +128,7 @@ export async function GET(request: NextRequest) {
   }
 
   // 3. Call Business Discovery API
-  const fields = `business_discovery.username(${targetUsername}){media.limit(24){id,caption,media_type,media_url,thumbnail_url,permalink,timestamp}}`
+  const fields = `business_discovery.username(${targetUsername}){media.limit(100){id,caption,media_type,media_url,thumbnail_url,permalink,timestamp}}`
   const url = `https://graph.facebook.com/v24.0/${businessId}?fields=${fields}&access_token=${accessToken}`
 
   console.log(`[Discovery] Fetching for target: ${targetUsername} via ID: ${businessId}`)
