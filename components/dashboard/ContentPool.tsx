@@ -45,8 +45,14 @@ export function ContentPool({ userId }: ContentPoolProps) {
     // New Item State
     const [caption, setCaption] = useState("")
     const [manualToken, setManualToken] = useState("")
+    const [manualBusinessId, setManualBusinessId] = useState("")
     const [showTokenInput, setShowTokenInput] = useState(false)
     const [files, setFiles] = useState<File[]>([])
+
+    // Safe Mode State
+    const [isSafeMode, setIsSafeMode] = useState(false)
+    const [processLogs, setProcessLogs] = useState<string[]>([])
+    const addLog = (msg: string) => setProcessLogs(prev => [...prev, `${new Date().toLocaleTimeString()} - ${msg}`])
     const [manualUrl, setManualUrl] = useState("")
     const [jsonInput, setJsonInput] = useState("")
     const [inputType, setInputType] = useState<"file" | "url" | "instagram" | "json" | "spy">("file")
@@ -132,6 +138,96 @@ export function ContentPool({ userId }: ContentPoolProps) {
         }
     }
 
+    // Client-Side Video Processing (The "Remix" Engine)
+    const processVideoSafe = async (url: string): Promise<Blob> => {
+        return new Promise(async (resolve, reject) => {
+            try {
+                addLog("1. Proxied Download Started...")
+                // 1. Fetch via Proxy to avoid CORS
+                const proxyUrl = `/api/proxy?url=${encodeURIComponent(url)}`
+                const res = await fetch(proxyUrl)
+                if (!res.ok) throw new Error("Proxy fetch failed")
+                const blob = await res.blob()
+                addLog(`2. Download Complete (${(blob.size / 1024 / 1024).toFixed(2)} MB)`)
+
+                // 2. Setup Hidden Video & Canvas
+                const video = document.createElement("video")
+                video.src = URL.createObjectURL(blob)
+                video.muted = true
+                video.crossOrigin = "anonymous"
+
+                // Wait for metadata
+                await new Promise((r) => { video.onloadedmetadata = r })
+                addLog(`3. Loaded Video Metadata (${video.duration.toFixed(1)}s)`)
+
+                const canvas = document.createElement("canvas")
+                const ctx = canvas.getContext("2d")
+                if (!ctx) throw new Error("Canvas 2D context failed")
+
+                // Set slightly different dimensions (e.g. crop 2px) to force re-encode
+                canvas.width = video.videoWidth
+                canvas.height = video.videoHeight
+
+                // 3. Setup Recorder
+                // Try higher bitrate (5Mbps) for quality
+                const stream = canvas.captureStream(30) // 30 FPS
+                const recorder = new MediaRecorder(stream, {
+                    mimeType: 'video/webm;codecs=vp9',
+                    videoBitsPerSecond: 5000000 // 5 Mbps
+                })
+                const chunks: Blob[] = []
+
+                recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data) }
+
+                recorder.onstop = () => {
+                    addLog("5. Processing Complete. Finalizing...")
+                    const refinedBlob = new Blob(chunks, { type: 'video/webm' })
+                    addLog(`6. New Unique File Created (${(refinedBlob.size / 1024 / 1024).toFixed(2)} MB)`)
+                    resolve(refinedBlob)
+                }
+
+                recorder.start()
+                video.play()
+
+                // 4. Processing Loop (The "Filter")
+                // Speed up slightly to change audio hash (1.05x)
+                video.playbackRate = 1.05
+
+                const draw = () => {
+                    if (video.paused || video.ended) return
+
+                    // Apply Filters: Saturation boost + Slight Zoom (102%)
+                    ctx.filter = "saturate(1.05) contrast(1.02)"
+
+                    // Zoom logic: Draw 102% size centered
+                    const w = canvas.width
+                    const h = canvas.height
+                    const zoom = 0.02 // 2% zoom
+                    ctx.drawImage(video,
+                        w * zoom * 0.5, h * zoom * 0.5, w * (1 - zoom), h * (1 - zoom), // Source Crop
+                        0, 0, w, h // Dest Full
+                    )
+
+                    requestAnimationFrame(draw)
+                }
+
+                video.onplay = () => {
+                    addLog("4. Remixing in progress... (Applying filters)")
+                    draw()
+                }
+
+                video.onended = () => {
+                    recorder.stop()
+                }
+
+                video.onerror = (e) => reject("Video Playback Error")
+
+            } catch (e: any) {
+                reject(e.message)
+            }
+        })
+    }
+
     const handleUpload = async () => {
         setUploading(true)
         setProgress("")
@@ -165,21 +261,52 @@ export function ContentPool({ userId }: ContentPoolProps) {
 
             // 2. Instagram & Spy Import (Both populate igMedia)
             else if (inputType === "instagram" || inputType === "spy") {
-                let successCount = 0
                 const toImport = igMedia.filter(m => selectedIgMedia.includes(m.id))
+                setProcessLogs([]) // Reset logs
 
                 for (let i = 0; i < toImport.length; i++) {
                     const item = toImport[i]
-                    setProgress(`Importing ${i + 1}/${toImport.length}...`)
+                    let finalVideoUrl = item.media_url || item.thumbnail_url
 
+                    // SAFE MODE LOGIC
+                    if (isSafeMode) {
+                        try {
+                            addLog(`Processing Item ${i + 1}/${toImport.length}...`)
+                            const safeBlob = await processVideoSafe(finalVideoUrl)
+
+                            // Upload Safe Blob to Supabase
+                            const fileName = `${userId}/remix_${Date.now()}_${i}.webm`
+                            addLog("7. Uploading Remix to Cloud...")
+
+                            const { error: uploadError } = await supabase.storage
+                                .from('reels')
+                                .upload(fileName, safeBlob)
+
+                            if (uploadError) throw uploadError
+
+                            const { data: { publicUrl } } = supabase.storage.from('reels').getPublicUrl(fileName)
+                            finalVideoUrl = publicUrl
+                            addLog("8. Upload Success!")
+
+                        } catch (remixErr: any) {
+                            console.error(remixErr)
+                            addLog(`❌ Remix Failed: ${remixErr}`)
+                            toast.error(`Remix failed for item ${i + 1}`)
+                            continue // Skip this item
+                        }
+                    }
+
+                    setProgress(`Importing ${i + 1}/${toImport.length}...`)
                     const res = await fetch('/api/scheduler/import-instagram', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ userId, videoUrl: item.media_url, caption: caption || item.caption })
+                        body: JSON.stringify({ userId, videoUrl: finalVideoUrl, caption: caption || item.caption })
                     })
-                    if (res.ok) successCount++
+                    if (res.ok) {
+                        addLog("✅ Item Imported to DB")
+                    }
                 }
-                toast.success(`Imported ${successCount} Reels`)
+                toast.success(`Import complete!`)
                 setSelectedIgMedia([])
             }
 
@@ -352,6 +479,27 @@ export function ContentPool({ userId }: ContentPoolProps) {
                                             onChange={(e) => setManualToken(e.target.value)}
                                             className="text-xs font-mono bg-black/20 border-white/10"
                                         />
+                                    )}
+
+                                    <div className="flex items-center gap-2 mt-4 border border-green-500/20 bg-green-500/10 p-2 rounded">
+                                        <input
+                                            type="checkbox"
+                                            checked={isSafeMode}
+                                            onChange={(e) => setIsSafeMode(e.target.checked)}
+                                            className="w-4 h-4 accent-green-500 cursor-pointer"
+                                        />
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-bold text-green-400">Enable Safe Mode (Remix)</span>
+                                            <span className="text-[10px] text-neutral-400">Zooms & Adjusts speed to bypass 'Duplicate Content' filters. (Slower)</span>
+                                        </div>
+                                    </div>
+
+                                    {processLogs.length > 0 && (
+                                        <div className="mt-4 p-2 bg-black/50 rounded font-mono text-[10px] h-32 overflow-y-auto border border-white/10">
+                                            {processLogs.map((log, i) => (
+                                                <div key={i} className="text-neutral-300 border-b border-white/5 pb-1 mb-1 last:border-0">{log}</div>
+                                            ))}
+                                        </div>
                                     )}
                                 </div>
 
