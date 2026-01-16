@@ -13,20 +13,6 @@ export async function POST(request: NextRequest) {
         const supabase = await getSupabaseServerClient()
 
         // 1. Download the Video from external URL (Instagram CDN)
-        // ... (omitting unchanged lines for brevity if tool supports it, otherwise providing full context)
-        // But based on previous reads, I need to match the target content exactly.
-        // I will just replace the top destructuring and the insert block.
-
-        // Wait, I can only replace one block or multiple chunks.
-        // Let's replace the whole function or the relevant parts.
-        // The previous replace used a large chunk. I will target the specific areas.
-
-        // Chunk 1: Destructuring
-        // Chunk 2: Insert 
-
-        const supabase = await getSupabaseServerClient()
-
-        // 1. Download the Video from external URL (Instagram CDN)
         console.log(`[Import] Downloading video: ${videoUrl}`)
         const vidRes = await fetch(videoUrl)
         if (!vidRes.ok) throw new Error("Failed to fetch video from remote URL")
