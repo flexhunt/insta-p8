@@ -96,7 +96,10 @@ export function ContentPool({ userId }: ContentPoolProps) {
             const res = await fetch(`/api/instagram/media?userId=${userId}`)
             if (res.ok) {
                 const data = await res.json()
-                setIgMedia(data.data || [])
+                // FILTER: User only calls for Reels/Videos
+                const allImport = data.data || []
+                const onlyReels = allImport.filter((m: any) => m.media_type === "VIDEO" || m.media_type === "REELS")
+                setIgMedia(onlyReels)
             } else {
                 toast.error("Failed to fetch media")
             }
@@ -123,8 +126,12 @@ export function ContentPool({ userId }: ContentPoolProps) {
             const res = await fetch(url)
             const data = await res.json()
             if (res.ok) {
-                setIgMedia(data.data || [])
-                if (data.data?.length === 0) toast.info("No media found or private account")
+                // FILTER: User only calls for Reels/Videos
+                const allImport = data.data || []
+                const onlyReels = allImport.filter((m: any) => m.media_type === "VIDEO" || m.media_type === "REELS")
+                setIgMedia(onlyReels)
+
+                if (onlyReels.length === 0) toast.info("No reels found (Images filtered out)")
             } else {
                 toast.error(data.error || "Failed to spy")
             }
