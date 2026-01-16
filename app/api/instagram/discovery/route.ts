@@ -21,34 +21,50 @@ export async function GET(request: NextRequest) {
         const spyToken = spyTokenRaw ? spyTokenRaw.trim().replace(/^"|"$/g, '') : null // Remove quotes if user added them in .env
 
         if (spyToken) {
-            console.log("[Discovery] Using Master Spy Token")
+            console.log(`[Discovery] Master Spy Token Found (Length: ${spyToken.length})`)
             accessToken = spyToken
 
-            // Fetch Business ID for this token
-            // The `accountRes` fetch is not directly used for business ID, but might be for token validation or user info.
-            // Keeping it as per the provided snippet, though it's not strictly necessary for the business ID flow.
-            const accountRes = await fetch(`https://graph.facebook.com/v24.0/me?fields=last_name`, {
+            // Debug: Check if token works for basic /me
+            const debugMe = await fetch(`https://graph.facebook.com/v24.0/me?fields=id,name`, {
                 headers: { Authorization: `Bearer ${spyToken}` }
             })
+            const debugData = await debugMe.json()
+            if (debugData.error) {
+                console.error("[Discovery] 🚨 Spy Token is INVALID/EXPIRED:", debugData.error)
+            } else {
+                console.log("[Discovery] ✅ Spy Token is valid for user:", debugData.name)
+            }
 
             // We need to find the connected business ID. 
             // Usually: /me/accounts -> Page -> Instagram Business
             const pagesRes = await fetch(`https://graph.facebook.com/v24.0/me/accounts?fields=instagram_business_account&access_token=${spyToken}`)
             const pagesData = await pagesRes.json()
 
-            if (pagesData.data && pagesData.data.length > 0) {
+            if (pagesData.error) {
+                console.error("[Discovery] 🚨 Failed to fetch Accounts:", pagesData.error)
+            }
+
+            // Add explicit check for pagesData.data
+            if (!pagesData.data) {
+                console.warn("[Discovery] No 'data' field in pages response. Cannot find Instagram Business Account.")
+            } else if (pagesData.data.length > 0) {
                 // Find first page with an IG Business Account
                 const validPage = pagesData.data.find((p: any) => p.instagram_business_account?.id)
                 if (validPage) {
                     businessId = validPage.instagram_business_account.id
+                    console.log("[Discovery] Found Business ID from Token:", businessId)
+                } else {
+                    console.warn("[Discovery] Token valid, but NO Instagram Business connected to these Pages.")
                 }
+            } else {
+                console.warn("[Discovery] No Pages found for this token user.")
             }
 
             if (!businessId) {
-                // Fallback: Try the hardcoded ID from user chat if known, or error
-                // For now, error if dynamic fetch fails
                 console.error("[Discovery] Could not resolve Business ID from Spy Token")
             }
+        } else {
+            console.log("[Discovery] No INSTAGRAM_SPY_TOKEN in env.")
         }
 
         // 2. Fallback to Database User Token (if no Spy Token found or Business ID missing)
