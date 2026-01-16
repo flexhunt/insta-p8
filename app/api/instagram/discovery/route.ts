@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
   const targetUsername = searchParams.get("target")
   const customToken = searchParams.get("customToken")
   const customBusinessId = searchParams.get("customBusinessId") || "17841473314302963"
+  const limit = parseInt(searchParams.get("limit") || "100") || 100
 
   if (!userId || !targetUsername) {
     return NextResponse.json({ error: "Missing userId or target" }, { status: 400 })
