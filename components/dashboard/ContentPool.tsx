@@ -67,6 +67,7 @@ export function ContentPool({ userId }: ContentPoolProps) {
 
     // Spy State
     const [spyTarget, setSpyTarget] = useState("")
+    const [spyLimit, setSpyLimit] = useState(100)
     const [loadingSpy, setLoadingSpy] = useState(false)
 
     useEffect(() => {
@@ -110,7 +111,7 @@ export function ContentPool({ userId }: ContentPoolProps) {
         if (!spyTarget) return toast.error("Enter a username")
         try {
             setLoadingSpy(true)
-            let url = `/api/instagram/discovery?userId=${userId}&target=${spyTarget}`
+            let url = `/api/instagram/discovery?userId=${userId}&target=${spyTarget}&limit=${spyLimit}`
             if (manualToken) {
                 // Encode the token just in case
                 url += `&customToken=${encodeURIComponent(manualToken.trim())}`
@@ -465,26 +466,37 @@ export function ContentPool({ userId }: ContentPoolProps) {
                             </TabsContent>
 
                             {/* SPY / ANALYZE */}
-                            <TabsContent value="spy" className="mt-4 space-y-4">
+                            <TabsContent value="spy" className="space-y-4 pt-4">
                                 <div className="flex gap-2">
-                                    <div className="relative flex-1">
-                                        <Search className="absolute left-3 top-3 w-4 h-4 text-neutral-500" />
-                                        <Input
-                                            placeholder="Target Username (e.g. therock)"
-                                            value={spyTarget}
-                                            onChange={(e) => setSpyTarget(e.target.value)}
-                                            className="pl-9 bg-black/20 border-white/10"
-                                        />
-                                    </div>
+                                    <Input
+                                        placeholder="Target username (e.g. 'instagram')"
+                                        className="bg-black/50 border-white/10 flex-1"
+                                        value={spyTarget}
+                                        onChange={(e) => setSpyTarget(e.target.value)}
+                                    />
+                                    <Input
+                                        type="number"
+                                        placeholder="Limit"
+                                        className="bg-black/50 border-white/10 w-20"
+                                        value={spyLimit}
+                                        onChange={(e) => setSpyLimit(parseInt(e.target.value) || 0)}
+                                        title="Max posts to fetch"
+                                    />
                                     <Button onClick={() => loadSpyMedia()} disabled={loadingSpy || !spyTarget}>
-                                        {loadingSpy ? <Loader2 className="animate-spin" /> : "Search"}
+                                        {loadingSpy ? <Loader2 className="animate-spin" /> : <Search className="w-4 h-4" />}
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => setShowTokenInput(!showTokenInput)}
+                                        className="text-neutral-500 hover:text-white"
+                                        title="Advanced Options"
+                                    >
+                                        <LinkIcon className="w-4 h-4" />
                                     </Button>
                                 </div>
 
                                 <div className="mt-2">
-                                    <p className="text-xs text-neutral-500 mb-1 cursor-pointer hover:underline" onClick={() => setShowTokenInput(!showTokenInput)}>
-                                        {showTokenInput ? "Hide Advanced Options" : "Show Advanced Options (Access Token)"}
-                                    </p>
                                     {showTokenInput && (
                                         <>
                                             <Input
