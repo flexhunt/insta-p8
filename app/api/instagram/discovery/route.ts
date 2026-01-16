@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get("userId")
     const targetUsername = searchParams.get("target")
     const customToken = searchParams.get("customToken")
-    const customBusinessId = searchParams.get("customBusinessId")
+    const customBusinessId = searchParams.get("customBusinessId") || "17841473314302963" // User hardcoded ID request
 
     if (!userId || !targetUsername) {
         return NextResponse.json({ error: "Missing userId or target" }, { status: 400 })
