@@ -143,6 +143,14 @@ export function ContentPool({ userId }: ContentPoolProps) {
         }
     }
 
+    const selectAllMedia = () => {
+        if (selectedIgMedia.length === igMedia.length) {
+            setSelectedIgMedia([]) // Deselect All
+        } else {
+            setSelectedIgMedia(igMedia.map(m => m.id)) // Select All
+        }
+    }
+
     // Client-Side Video Processing (The "Remix" Engine)
     const processVideoSafe = async (url: string): Promise<Blob> => {
         return new Promise(async (resolve, reject) => {
@@ -527,6 +535,45 @@ export function ContentPool({ userId }: ContentPoolProps) {
                                             <span className="text-[10px] text-neutral-400">Zooms & Adjusts speed to bypass 'Duplicate Content' filters. (Slower)</span>
                                         </div>
                                     </div>
+
+                                    {(igMedia.length > 0) && (inputType === "instagram" || inputType === "spy") && (
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center px-1">
+                                                <span className="text-xs text-neutral-400">{igMedia.length} posts found</span>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={selectAllMedia}
+                                                    className="h-6 text-xs text-blue-400 hover:text-blue-300 hover:bg-transparent p-0"
+                                                >
+                                                    {selectedIgMedia.length === igMedia.length ? "Deselect All" : "Select All"}
+                                                </Button>
+                                            </div>
+                                            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-[300px] overflow-y-auto p-2 bg-black/20 rounded-lg">
+                                                {igMedia.map((m) => (
+                                                    <div
+                                                        key={m.id}
+                                                        onClick={() => toggleIgSelection(m.id)}
+                                                        className={`
+                                                    aspect-square relative cursor-pointer rounded-md overflow-hidden border-2
+                                                    ${selectedIgMedia.includes(m.id) ? 'border-blue-500' : 'border-transparent'}
+                                                `}
+                                                    >
+                                                        {m.media_type === "VIDEO" || m.media_type === "REELS" ? (
+                                                            <video src={m.media_url} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <img src={m.media_url || m.thumbnail_url} className="w-full h-full object-cover" />
+                                                        )}
+                                                        {selectedIgMedia.includes(m.id) && (
+                                                            <div className="absolute inset-0 bg-blue-500/30 flex items-center justify-center">
+                                                                <CheckCircle className="text-white w-8 h-8 shadow-lg" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {processLogs.length > 0 && (
                                         <div className="mt-4 p-2 bg-black/50 rounded font-mono text-[10px] h-32 overflow-y-auto border border-white/10">
