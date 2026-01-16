@@ -66,32 +66,29 @@ export async function GET(request: NextRequest) {
                 console.error("[Discovery] Could not resolve Business ID from Spy Token")
             }
         } else {
-            console.log("[Discovery] No INSTAGRAM_SPY_TOKEN in env.")
+            console.log("[Discovery] No INSTAGRAM_SPY_TOKEN or Manual Token provided.")
         }
+
+        console.log(`[Discovery] Using Business ID: ${businessId} (Access Token: ${accessToken ? 'Yes' : 'No'})`)
 
         // 2. Fallback to Database User Token (if no Spy Token found or Business ID missing)
         if (!accessToken || !businessId) {
-            try {
-                const { data: user } = await supabase
-                    .from("users")
-                    .select("access_token, business_account_id, page_id")
-                    .eq("id", userId)
-                    .single()
+            const { data: user } = await supabase
+                .from("users")
+                .select("access_token, business_account_id, page_id")
+                .eq("id", userId)
+                .single()
 
-                if (!user?.access_token) {
-                    return NextResponse.json({ error: "Instagram not connected" }, { status: 401 })
-                }
-                accessToken = user.access_token
+            if (!user?.access_token) {
+                return NextResponse.json({ error: "Instagram not connected" }, { status: 401 })
+            }
+            accessToken = user.access_token
 
-                // Use Business ID or fallback to Page ID if it looks like a business ID (starts with 1784)
-                // Discovery API REQUIRES a Business ID (IG User ID), not a Token User ID.
-                businessId = user.business_account_id
-                if (!businessId && user.page_id && user.page_id.startsWith("1784")) {
-                    businessId = user.page_id
-                }
-            } catch (err) {
-                console.warn("[Discovery] Database lookup failed (likely invalid User ID format):", err)
-                // Do not crash, just let it proceed to validity check which will fail gracefully
+            // Use Business ID or fallback to Page ID if it looks like a business ID (starts with 1784)
+            // Discovery API REQUIRES a Business ID (IG User ID), not a Token User ID.
+            businessId = user.business_account_id
+            if (!businessId && user.page_id && user.page_id.startsWith("1784")) {
+                businessId = user.page_id
             }
         }
 
