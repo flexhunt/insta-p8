@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { createClient } from "@supabase/supabase-js"
+import { createBrowserClient } from "@supabase/ssr"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -11,8 +11,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Loader2, Plus, Trash2, Upload, Film, Link as LinkIcon, CheckCircle, FileJson, Instagram, Search } from "lucide-react"
 import { toast } from "sonner"
 
-// Initialize Supabase Client for client-side storage upload
-const supabase = createClient(
+// Initialize Authenticated Supabase Client
+const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
@@ -114,6 +114,9 @@ export function ContentPool({ userId }: ContentPoolProps) {
                 // Encode the token just in case
                 url += `&customToken=${encodeURIComponent(manualToken.trim())}`
             }
+            if (manualBusinessId) {
+                url += `&customBusinessId=${encodeURIComponent(manualBusinessId.trim())}`
+            }
 
             const res = await fetch(url)
             const data = await res.json()
@@ -169,11 +172,11 @@ export function ContentPool({ userId }: ContentPoolProps) {
                 canvas.height = video.videoHeight
 
                 // 3. Setup Recorder
-                // Try higher bitrate (5Mbps) for quality
+                // Try slightly lower bitrate (3Mbps) for faster upload/processing while keeping quality decent
                 const stream = canvas.captureStream(30) // 30 FPS
                 const recorder = new MediaRecorder(stream, {
                     mimeType: 'video/webm;codecs=vp9',
-                    videoBitsPerSecond: 5000000 // 5 Mbps
+                    videoBitsPerSecond: 3000000 // 3 Mbps (reduced from 5Mbps)
                 })
                 const chunks: Blob[] = []
 
