@@ -110,7 +110,11 @@ export async function GET(request: NextRequest) {
 
         if (data.error) {
             console.error("[Discovery] API Error:", data.error)
-            return NextResponse.json({ error: data.error.message }, { status: 500 })
+            // Return the upstream error details to the client (usually 400/403) providing more context
+            return NextResponse.json({
+                error: data.error.message || "Graph API Error",
+                details: data.error
+            }, { status: 400 })
         }
 
         // Extract the nested media list
