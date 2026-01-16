@@ -45,7 +45,6 @@ export function ContentPool({ userId }: ContentPoolProps) {
     // New Item State
     const [caption, setCaption] = useState("")
     const [manualToken, setManualToken] = useState("")
-    const [manualBusinessId, setManualBusinessId] = useState("")
     const [showTokenInput, setShowTokenInput] = useState(false)
     const [files, setFiles] = useState<File[]>([])
     const [manualUrl, setManualUrl] = useState("")
@@ -108,9 +107,6 @@ export function ContentPool({ userId }: ContentPoolProps) {
             if (manualToken) {
                 // Encode the token just in case
                 url += `&customToken=${encodeURIComponent(manualToken.trim())}`
-            }
-            if (manualBusinessId) {
-                url += `&customBusinessId=${encodeURIComponent(manualBusinessId.trim())}`
             }
 
             const res = await fetch(url)
@@ -349,21 +345,13 @@ export function ContentPool({ userId }: ContentPoolProps) {
                                         {showTokenInput ? "Hide Advanced Options" : "Show Advanced Options (Access Token)"}
                                     </p>
                                     {showTokenInput && (
-                                        <div className="flex flex-col gap-2">
-                                            <Input
-                                                type="password"
-                                                placeholder="Paste Manual Access Token (Optional)"
-                                                value={manualToken}
-                                                onChange={(e) => setManualToken(e.target.value)}
-                                                className="text-xs font-mono bg-black/20 border-white/10"
-                                            />
-                                            <Input
-                                                placeholder="Manual Business ID (e.g. 1784...) (Optional)"
-                                                value={manualBusinessId}
-                                                onChange={(e) => setManualBusinessId(e.target.value)}
-                                                className="text-xs font-mono bg-black/20 border-white/10"
-                                            />
-                                        </div>
+                                        <Input
+                                            type="password"
+                                            placeholder="Paste Manual Access Token (Optional)"
+                                            value={manualToken}
+                                            onChange={(e) => setManualToken(e.target.value)}
+                                            className="text-xs font-mono bg-black/20 border-white/10"
+                                        />
                                     )}
                                 </div>
 
