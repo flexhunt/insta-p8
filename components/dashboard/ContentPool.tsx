@@ -58,6 +58,7 @@ export function ContentPool({ userId }: ContentPoolProps) {
 
     // Spy State
     const [spyTarget, setSpyTarget] = useState("")
+    const [manualSpyToken, setManualSpyToken] = useState("")
     const [loadingSpy, setLoadingSpy] = useState(false)
 
     useEffect(() => {
@@ -101,7 +102,8 @@ export function ContentPool({ userId }: ContentPoolProps) {
         if (!spyTarget) return toast.error("Enter a username")
         try {
             setLoadingSpy(true)
-            const res = await fetch(`/api/instagram/discovery?userId=${userId}&target=${spyTarget}`)
+            const tokenParam = manualSpyToken ? `&token=${encodeURIComponent(manualSpyToken)}` : ""
+            const res = await fetch(`/api/instagram/discovery?userId=${userId}&target=${spyTarget}${tokenParam}`)
             const data = await res.json()
             if (res.ok) {
                 setIgMedia(data.data || [])
@@ -330,6 +332,15 @@ export function ContentPool({ userId }: ContentPoolProps) {
                                     <Button onClick={loadSpyMedia} disabled={loadingSpy || !spyTarget}>
                                         {loadingSpy ? <Loader2 className="animate-spin" /> : "Search"}
                                     </Button>
+                                </div>
+                                <div className="relative">
+                                    <Input
+                                        type="password"
+                                        placeholder="Optional: Paste 'Instagram Graph API' Token here explicitly"
+                                        value={manualSpyToken}
+                                        onChange={(e) => setManualSpyToken(e.target.value)}
+                                        className="bg-black/20 border-white/10 text-xs text-neutral-400"
+                                    />
                                 </div>
 
                                 {loadingSpy ? (

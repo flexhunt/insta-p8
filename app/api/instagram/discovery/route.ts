@@ -6,6 +6,7 @@ export async function GET(request: NextRequest) {
         const searchParams = request.nextUrl.searchParams
         const userId = searchParams.get("userId")
         const targetUsername = searchParams.get("target")
+        const manualToken = searchParams.get("token")
 
         if (!userId || !targetUsername) {
             return NextResponse.json({ error: "Missing userId or target username" }, { status: 400 })
@@ -16,8 +17,9 @@ export async function GET(request: NextRequest) {
         let accessToken = ""
         let businessId = ""
 
-        // 1. Check for Master Spy Token (Env Var) - Priority #1
-        const spyTokenRaw = process.env.INSTAGRAM_SPY_TOKEN
+        // 1. Check for Manual Token (UI) or Master Spy Token (Env Var)
+        // Priority: UI > Env
+        const spyTokenRaw = manualToken || process.env.INSTAGRAM_SPY_TOKEN
         const spyToken = spyTokenRaw ? spyTokenRaw.trim().replace(/^"|"$/g, '') : null // Remove quotes if user added them in .env
 
         if (spyToken) {
@@ -113,6 +115,8 @@ export async function GET(request: NextRequest) {
 
         // Extract the nested media list
         const mediaList = data.business_discovery?.media?.data || []
+
+        console.log(`[Discovery] Success! Found ${mediaList.length} items for ${targetUsername}`)
 
         return NextResponse.json({ data: mediaList })
 
