@@ -3,13 +3,13 @@ import { getSupabaseServerClient } from "@/lib/supabase-server"
 
 export async function GET(request: NextRequest) {
     try {
-        const searchParams = request.nextUrl.searchParams
+        const { searchParams } = new URL(request.url)
         const userId = searchParams.get("userId")
         const targetUsername = searchParams.get("target")
-        const manualToken = searchParams.get("token")
+        const customToken = searchParams.get("customToken")
 
         if (!userId || !targetUsername) {
-            return NextResponse.json({ error: "Missing userId or target username" }, { status: 400 })
+            return NextResponse.json({ error: "Missing userId or target" }, { status: 400 })
         }
 
         const supabase = await getSupabaseServerClient()
@@ -17,18 +17,28 @@ export async function GET(request: NextRequest) {
         let accessToken = ""
         let businessId = ""
 
-        // 1. Check for Manual Token (UI) or Master Spy Token (Env Var)
-        // Priority: UI > Env
-        const spyTokenRaw = manualToken || process.env.INSTAGRAM_SPY_TOKEN
+        // 0. Check for Manual Token from UI - Priority #0 (Highest)
+        if (customToken) {
+            console.log("[Discovery] Using Manual Token from UI")
+            accessToken = customToken
+            // We still need to resolve the business ID below...
+        }
+
+        // 1. Check for Master Spy Token (Env Var) - Priority #1 (if no manual token)
+        const spyTokenRaw = process.env.INSTAGRAM_SPY_TOKEN
         const spyToken = spyTokenRaw ? spyTokenRaw.trim().replace(/^"|"$/g, '') : null // Remove quotes if user added them in .env
 
-        if (spyToken) {
+        if (!accessToken && spyToken) {
             console.log(`[Discovery] Master Spy Token Found (Length: ${spyToken.length})`)
             accessToken = spyToken
+        }
+
+        if (accessToken) {
+            // Resolve Business ID for whichever token we have (Manual or Env)
 
             // Debug: Check if token works for basic /me
             const debugMe = await fetch(`https://graph.facebook.com/v24.0/me?fields=id,name`, {
-                headers: { Authorization: `Bearer ${spyToken}` }
+                headers: { Authorization: `Bearer ${accessToken}` }
             })
             const debugData = await debugMe.json()
             if (debugData.error) {
@@ -66,10 +76,8 @@ export async function GET(request: NextRequest) {
                 console.error("[Discovery] Could not resolve Business ID from Spy Token")
             }
         } else {
-            console.log("[Discovery] No INSTAGRAM_SPY_TOKEN or Manual Token provided.")
+            console.log("[Discovery] No INSTAGRAM_SPY_TOKEN in env.")
         }
-
-        console.log(`[Discovery] Using Business ID: ${businessId} (Access Token: ${accessToken ? 'Yes' : 'No'})`)
 
         // 2. Fallback to Database User Token (if no Spy Token found or Business ID missing)
         if (!accessToken || !businessId) {
@@ -112,17 +120,11 @@ export async function GET(request: NextRequest) {
 
         if (data.error) {
             console.error("[Discovery] API Error:", data.error)
-            // Return the upstream error details to the client (usually 400/403) providing more context
-            return NextResponse.json({
-                error: data.error.message || "Graph API Error",
-                details: data.error
-            }, { status: 400 })
+            return NextResponse.json({ error: data.error.message }, { status: 500 })
         }
 
         // Extract the nested media list
         const mediaList = data.business_discovery?.media?.data || []
-
-        console.log(`[Discovery] Success! Found ${mediaList.length} items for ${targetUsername}`)
 
         return NextResponse.json({ data: mediaList })
 

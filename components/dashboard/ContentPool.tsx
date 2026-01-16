@@ -44,6 +44,8 @@ export function ContentPool({ userId }: ContentPoolProps) {
 
     // New Item State
     const [caption, setCaption] = useState("")
+    const [manualToken, setManualToken] = useState("")
+    const [showTokenInput, setShowTokenInput] = useState(false)
     const [files, setFiles] = useState<File[]>([])
     const [manualUrl, setManualUrl] = useState("")
     const [jsonInput, setJsonInput] = useState("")
@@ -58,7 +60,6 @@ export function ContentPool({ userId }: ContentPoolProps) {
 
     // Spy State
     const [spyTarget, setSpyTarget] = useState("")
-    const [manualSpyToken, setManualSpyToken] = useState("")
     const [loadingSpy, setLoadingSpy] = useState(false)
 
     useEffect(() => {
@@ -102,8 +103,13 @@ export function ContentPool({ userId }: ContentPoolProps) {
         if (!spyTarget) return toast.error("Enter a username")
         try {
             setLoadingSpy(true)
-            const tokenParam = manualSpyToken ? `&token=${encodeURIComponent(manualSpyToken)}` : ""
-            const res = await fetch(`/api/instagram/discovery?userId=${userId}&target=${spyTarget}${tokenParam}`)
+            let url = `/api/instagram/discovery?userId=${userId}&target=${spyTarget}`
+            if (manualToken) {
+                // Encode the token just in case
+                url += `&customToken=${encodeURIComponent(manualToken.trim())}`
+            }
+
+            const res = await fetch(url)
             const data = await res.json()
             if (res.ok) {
                 setIgMedia(data.data || [])
@@ -323,24 +329,30 @@ export function ContentPool({ userId }: ContentPoolProps) {
                                     <div className="relative flex-1">
                                         <Search className="absolute left-3 top-3 w-4 h-4 text-neutral-500" />
                                         <Input
-                                            placeholder="Enter username (e.g. nike)"
+                                            placeholder="Target Username (e.g. therock)"
                                             value={spyTarget}
                                             onChange={(e) => setSpyTarget(e.target.value)}
                                             className="pl-9 bg-black/20 border-white/10"
                                         />
                                     </div>
-                                    <Button onClick={loadSpyMedia} disabled={loadingSpy || !spyTarget}>
+                                    <Button onClick={() => loadSpyMedia(manualToken)} disabled={loadingSpy || !spyTarget}>
                                         {loadingSpy ? <Loader2 className="animate-spin" /> : "Search"}
                                     </Button>
                                 </div>
-                                <div className="relative">
-                                    <Input
-                                        type="password"
-                                        placeholder="Optional: Paste 'Instagram Graph API' Token here explicitly"
-                                        value={manualSpyToken}
-                                        onChange={(e) => setManualSpyToken(e.target.value)}
-                                        className="bg-black/20 border-white/10 text-xs text-neutral-400"
-                                    />
+
+                                <div className="mt-2">
+                                    <p className="text-xs text-neutral-500 mb-1 cursor-pointer hover:underline" onClick={() => setShowTokenInput(!showTokenInput)}>
+                                        {showTokenInput ? "Hide Advanced Options" : "Show Advanced Options (Access Token)"}
+                                    </p>
+                                    {showTokenInput && (
+                                        <Input
+                                            type="password"
+                                            placeholder="Paste Manual Access Token (Optional)"
+                                            value={manualToken}
+                                            onChange={(e) => setManualToken(e.target.value)}
+                                            className="text-xs font-mono bg-black/20 border-white/10"
+                                        />
+                                    )}
                                 </div>
 
                                 {loadingSpy ? (

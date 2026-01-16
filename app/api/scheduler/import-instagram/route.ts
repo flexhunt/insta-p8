@@ -15,10 +15,7 @@ export async function POST(request: NextRequest) {
         // 1. Download the Video from external URL (Instagram CDN)
         console.log(`[Import] Downloading video: ${videoUrl}`)
         const vidRes = await fetch(videoUrl)
-        if (!vidRes.ok) {
-            console.error(`[Import] Fetch Failed: ${vidRes.status} ${vidRes.statusText}`)
-            throw new Error(`Failed to fetch video: ${vidRes.status} ${vidRes.statusText}`)
-        }
+        if (!vidRes.ok) throw new Error("Failed to fetch video from remote URL")
 
         const videoBlob = await vidRes.blob()
         const arrayBuffer = await videoBlob.arrayBuffer()
