@@ -54,46 +54,49 @@ export async function POST(request: NextRequest) {
       if (!user) {
         console.log(`[v0] ⚠️ ID ${webhookId} not found in DB. Attempting Self-Heal...`)
 
-        // 1. Find the most recently active user
-        const { data: recentUser } = await supabase
+        // 1. Get ALL users (not just the most recent) to test their tokens
+        const { data: allUsers } = await supabase
           .from("users")
           .select("*")
           .order("updated_at", { ascending: false })
-          .limit(1)
-          .single()
 
-        if (recentUser && recentUser.access_token) {
-          console.log(`[v0] 🧪 Testing candidate: ${recentUser.username}`)
+        if (allUsers && allUsers.length > 0) {
+          // 2. Iterate through all users and test each token
+          for (const candidate of allUsers) {
+            if (!candidate.access_token) continue
 
-          // 2. Test if this user's token works for this Webhook ID
-          try {
-            // We try to fetch the Webhook ID using the user's token.
-            // If this succeeds, IT'S A MATCH.
-            const testUrl = `https://graph.instagram.com/v24.0/${webhookId}?fields=id&access_token=${recentUser.access_token}`
-            const testRes = await fetch(testUrl)
+            console.log(`[v0] 🧪 Testing candidate: ${candidate.username}`)
 
-            if (testRes.ok) {
-              console.log(`[v0] ✅ MATCH CONFIRMED! Auto-linking ID ${webhookId} to ${recentUser.username}`)
+            try {
+              // We try to fetch the Webhook ID using the user's token.
+              // If this succeeds, IT'S A MATCH.
+              const testUrl = `https://graph.instagram.com/v24.0/${webhookId}?fields=id&access_token=${candidate.access_token}`
+              const testRes = await fetch(testUrl)
 
-              // 3. UPDATE THE DB AUTOMATICALLY
-              // We save this ID as the 'business_account_id' (or page_id) so it works forever.
-              await supabase
-                .from("users")
-                .update({
-                  business_account_id: webhookId, // Save as main ID
-                  page_id: webhookId, // Save as Shadow ID too (safety)
-                })
-                .eq("id", recentUser.id)
+              if (testRes.ok) {
+                console.log(`[v0] ✅ MATCH CONFIRMED! Auto-linking ID ${webhookId} to ${candidate.username}`)
 
-              // 4. Use this user for the current message
-              user = recentUser
-              // Update local object so we can reply now
-              user.business_account_id = webhookId
-            } else {
-              console.log(`[v0] ❌ Token mismatch. This ID does not belong to ${recentUser.username}`)
+                // 3. UPDATE THE DB AUTOMATICALLY
+                // We save this ID as the 'business_account_id' (or page_id) so it works forever.
+                await supabase
+                  .from("users")
+                  .update({
+                    business_account_id: webhookId, // Save as main ID
+                    page_id: webhookId, // Save as Shadow ID too (safety)
+                  })
+                  .eq("id", candidate.id)
+
+                // 4. Use this user for the current message
+                user = candidate
+                // Update local object so we can reply now
+                user.business_account_id = webhookId
+                break // Stop searching, we found the match
+              } else {
+                console.log(`[v0] ❌ Token mismatch. This ID does not belong to ${candidate.username}`)
+              }
+            } catch (e) {
+              console.error(`[v0] Self-Heal test failed for ${candidate.username}:`, e)
             }
-          } catch (e) {
-            console.error("[v0] Self-Heal Verification Failed", e)
           }
         }
       }
