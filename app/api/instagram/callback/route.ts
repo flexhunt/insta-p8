@@ -67,37 +67,81 @@ export async function POST(request: NextRequest) {
     const accessToken = longData.access_token || shortToken
     const expiresIn = longData.expires_in || 5184000
 
-    // 4. Get Username (with better error handling)
+    // 4. Get Username AND User ID from /me endpoint
     let username = `user_${loginUserId}`
+    let meUserId = loginUserId // The ID returned from /me endpoint
     try {
-      const igRes = await fetch(`https://graph.instagram.com/me?fields=username&access_token=${accessToken}`)
+      const igRes = await fetch(`https://graph.instagram.com/v24.0/me?fields=id,username&access_token=${accessToken}`)
       const igData = await igRes.json()
+      console.log(`[v0] 📡 /me response:`, JSON.stringify(igData))
+
       if (igData.username) {
         username = igData.username
         console.log(`[v0] ✅ Username fetched: ${username}`)
-      } else if (igData.error) {
-        console.error(`[v0] ❌ Username fetch failed:`, igData.error)
+      }
+      if (igData.id) {
+        meUserId = igData.id
+        console.log(`[v0] ✅ User ID from /me: ${meUserId}`)
+      }
+      if (igData.error) {
+        console.error(`[v0] ❌ /me endpoint failed:`, igData.error)
       }
     } catch (e) {
-      console.error(`[v0] ❌ Username fetch exception:`, e)
+      console.error(`[v0] ❌ /me endpoint exception:`, e)
     }
 
-    // 5. Business Discovery (Find the "1784" ID)
+    // 5. Business Discovery (Multiple Approaches)
     let businessAccountId = null
-    try {
-      const encodedUsername = encodeURIComponent(username)
-      const discUrl = `https://graph.instagram.com/v24.0/${loginUserId}?fields=business_discovery.username(${encodedUsername}){id}&access_token=${accessToken}`
-      const discRes = await fetch(discUrl)
-      const discData = await discRes.json()
-      if (discData.business_discovery?.id) {
-        businessAccountId = discData.business_discovery.id
-        console.log(`[v0] 🎯 Discovery found Real Business ID: ${businessAccountId}`)
-      } else if (discData.error) {
-        console.warn(`[v0] ⚠️ Discovery API error:`, discData.error.message)
-      }
-    } catch (e) {
-      console.warn("[v0] Discovery failed:", e)
+
+    // Approach 1: If /me returned a 1784 ID, use it directly!
+    if (meUserId && meUserId.startsWith("1784")) {
+      businessAccountId = meUserId
+      console.log(`[v0] 🎯 Method 1: /me returned Business ID directly: ${businessAccountId}`)
     }
+
+    // Approach 2: Try business_discovery with username (if we have real username)
+    if (!businessAccountId && username && !username.startsWith("user_")) {
+      try {
+        const encodedUsername = encodeURIComponent(username)
+        const discUrl = `https://graph.instagram.com/v24.0/${loginUserId}?fields=business_discovery.username(${encodedUsername}){id}&access_token=${accessToken}`
+        console.log(`[v0] 🔍 Trying business_discovery for username: ${username}`)
+        const discRes = await fetch(discUrl)
+        const discData = await discRes.json()
+        if (discData.business_discovery?.id) {
+          businessAccountId = discData.business_discovery.id
+          console.log(`[v0] 🎯 Method 2: Discovery found Business ID: ${businessAccountId}`)
+        } else if (discData.error) {
+          console.warn(`[v0] ⚠️ Discovery API error:`, discData.error.message)
+        }
+      } catch (e) {
+        console.warn("[v0] Discovery failed:", e)
+      }
+    }
+
+    // Approach 3: Try fetching user's pages (Facebook Business approach)
+    if (!businessAccountId) {
+      try {
+        const pagesUrl = `https://graph.facebook.com/v24.0/me/accounts?fields=instagram_business_account&access_token=${accessToken}`
+        console.log(`[v0] 🔍 Trying Facebook Pages approach...`)
+        const pagesRes = await fetch(pagesUrl)
+        const pagesData = await pagesRes.json()
+        if (pagesData.data && pagesData.data.length > 0) {
+          const validPage = pagesData.data.find((p: any) => p.instagram_business_account?.id)
+          if (validPage) {
+            businessAccountId = validPage.instagram_business_account.id
+            console.log(`[v0] 🎯 Method 3: Found Business ID via Pages: ${businessAccountId}`)
+          }
+        } else if (pagesData.error) {
+          console.warn(`[v0] ⚠️ Pages API error (expected for IG Login):`, pagesData.error.message)
+        }
+      } catch (e) {
+        // This is expected to fail for "Instagram Login" users (vs Facebook Business Login)
+        console.log(`[v0] ℹ️ Pages approach not available (normal for IG Login)`)
+      }
+    }
+
+    console.log(`[v0] 📊 Final Discovery Result: username=${username}, businessAccountId=${businessAccountId || 'NULL'}`)
+
 
     // 6. Save/Update User
     const supabase = await getSupabaseServerClient()
