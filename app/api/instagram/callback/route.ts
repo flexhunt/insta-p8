@@ -67,87 +67,34 @@ export async function POST(request: NextRequest) {
     const accessToken = longData.access_token || shortToken
     const expiresIn = longData.expires_in || 5184000
 
-    // 4. Get Username AND User ID from /me endpoint
+    // 4. Get Username
     let username = `user_${loginUserId}`
-    let meUserId = loginUserId // The ID returned from /me endpoint
     try {
-      const igRes = await fetch(`https://graph.instagram.com/v24.0/me?fields=id,username&access_token=${accessToken}`)
+      const igRes = await fetch(`https://graph.instagram.com/me?fields=username&access_token=${accessToken}`)
       const igData = await igRes.json()
-      console.log(`[v0] 📡 /me response:`, JSON.stringify(igData))
+      if (igData.username) username = igData.username
+    } catch (e) {}
 
-      if (igData.username) {
-        username = igData.username
-        console.log(`[v0] ✅ Username fetched: ${username}`)
-      }
-      if (igData.id) {
-        meUserId = igData.id
-        console.log(`[v0] ✅ User ID from /me: ${meUserId}`)
-      }
-      if (igData.error) {
-        console.error(`[v0] ❌ /me endpoint failed:`, igData.error)
+    // 5. Business Discovery (Find the "1784" ID)
+    let businessAccountId = null
+    try {
+      const encodedUsername = encodeURIComponent(username)
+      const discUrl = `https://graph.instagram.com/v24.0/${loginUserId}?fields=business_discovery.username(${encodedUsername}){id}&access_token=${accessToken}`
+      const discRes = await fetch(discUrl)
+      const discData = await discRes.json()
+      if (discData.business_discovery?.id) {
+        businessAccountId = discData.business_discovery.id
+        console.log(`[v0] 🎯 Discovery found Real Business ID: ${businessAccountId}`)
       }
     } catch (e) {
-      console.error(`[v0] ❌ /me endpoint exception:`, e)
+      console.warn("[v0] Discovery failed:", e)
     }
-
-    // 5. Business Discovery (Multiple Approaches)
-    let businessAccountId = null
-
-    // Approach 1: If /me returned a 1784 ID, use it directly!
-    if (meUserId && meUserId.startsWith("1784")) {
-      businessAccountId = meUserId
-      console.log(`[v0] 🎯 Method 1: /me returned Business ID directly: ${businessAccountId}`)
-    }
-
-    // Approach 2: Try business_discovery with username (if we have real username)
-    if (!businessAccountId && username && !username.startsWith("user_")) {
-      try {
-        const encodedUsername = encodeURIComponent(username)
-        const discUrl = `https://graph.instagram.com/v24.0/${loginUserId}?fields=business_discovery.username(${encodedUsername}){id}&access_token=${accessToken}`
-        console.log(`[v0] 🔍 Trying business_discovery for username: ${username}`)
-        const discRes = await fetch(discUrl)
-        const discData = await discRes.json()
-        if (discData.business_discovery?.id) {
-          businessAccountId = discData.business_discovery.id
-          console.log(`[v0] 🎯 Method 2: Discovery found Business ID: ${businessAccountId}`)
-        } else if (discData.error) {
-          console.warn(`[v0] ⚠️ Discovery API error:`, discData.error.message)
-        }
-      } catch (e) {
-        console.warn("[v0] Discovery failed:", e)
-      }
-    }
-
-    // Approach 3: Try fetching user's pages (Facebook Business approach)
-    if (!businessAccountId) {
-      try {
-        const pagesUrl = `https://graph.facebook.com/v24.0/me/accounts?fields=instagram_business_account&access_token=${accessToken}`
-        console.log(`[v0] 🔍 Trying Facebook Pages approach...`)
-        const pagesRes = await fetch(pagesUrl)
-        const pagesData = await pagesRes.json()
-        if (pagesData.data && pagesData.data.length > 0) {
-          const validPage = pagesData.data.find((p: any) => p.instagram_business_account?.id)
-          if (validPage) {
-            businessAccountId = validPage.instagram_business_account.id
-            console.log(`[v0] 🎯 Method 3: Found Business ID via Pages: ${businessAccountId}`)
-          }
-        } else if (pagesData.error) {
-          console.warn(`[v0] ⚠️ Pages API error (expected for IG Login):`, pagesData.error.message)
-        }
-      } catch (e) {
-        // This is expected to fail for "Instagram Login" users (vs Facebook Business Login)
-        console.log(`[v0] ℹ️ Pages approach not available (normal for IG Login)`)
-      }
-    }
-
-    console.log(`[v0] 📊 Final Discovery Result: username=${username}, businessAccountId=${businessAccountId || 'NULL'}`)
-
 
     // 6. Save/Update User
     const supabase = await getSupabaseServerClient()
-
+    
     // Check current DB state
-    const { data: currentUser } = await supabase.from("users").select("page_id, business_account_id").eq("id", loginUserId).single()
+    const { data: currentUser } = await supabase.from("users").select("page_id").eq("id", loginUserId).single()
 
     const updates: any = {
       username,
@@ -158,25 +105,17 @@ export async function POST(request: NextRequest) {
 
     // If Discovery worked, save the Good ID
     if (businessAccountId) {
-      updates.business_account_id = businessAccountId
-      updates.page_id = businessAccountId // Also set page_id for dual-lookup
-      console.log(`[v0] ✅ Saving business_account_id AND page_id: ${businessAccountId}`)
-    } else if (currentUser?.business_account_id) {
-      // Keep existing business_account_id if we already have one
-      console.log(`[v0] 🛡️ Keeping existing business_account_id: ${currentUser.business_account_id}`)
+       updates.business_account_id = businessAccountId
     }
 
-    // ALWAYS ensure page_id is set (for webhook dual-lookup to work)
-    // If we didn't set it above with businessAccountId, use loginUserId as fallback
-    if (!updates.page_id) {
-      if (currentUser?.page_id && currentUser.page_id.startsWith("1784")) {
+    // PROTECT THE SHADOW ID (The "1784" Logic)
+    // If we ALREADY have a good page_id (starts with 1784), DO NOT overwrite it.
+    if (currentUser?.page_id && currentUser.page_id.startsWith("1784")) {
         // Keep the existing good ID
         console.log(`[v0] 🛡️ Protecting existing Page ID: ${currentUser.page_id}`)
-      } else {
-        // Set login ID as fallback - webhook can find user with this
-        updates.page_id = loginUserId
-        console.log(`[v0] 📌 Setting page_id to loginUserId for webhook: ${loginUserId}`)
-      }
+    } else {
+        // Otherwise, save the login ID as the fallback
+        updates.page_id = loginUserId 
     }
 
     const { error: upsertError } = await supabase
