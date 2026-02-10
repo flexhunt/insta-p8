@@ -2,29 +2,28 @@ import os
 import random
 import requests
 from supabase import create_client, Client
-from dotenv import load_dotenv
-
-# Load env variables (Optional, if user uses .env locally)
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    # Load .env from current directory or specific path
+    load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
+except ImportError:
+    pass
 
 # --- SETTINGS ---
 # Replace these with your actual values or env vars
 API_URL = "http://localhost:3000/api/hooks/upload-washed-reel" # Local testing
 # API_URL = "https://insta-p8.vercel.app/api/hooks/upload-washed-reel" # Production
 
-API_SECRET = "ayush" 
-USER_ID = "25420744910952036" # Hardcoded from previous context or use os.getenv("USER_ID")
+# Load secrets from ENV
+API_SECRET = os.getenv("API_SECRET_KEY", "ayush") 
+USER_ID = "25420744910952036" # Keep this hardcoded for now or use os.getenv("TEST_USER_ID")
 
 # Supabase
-# NOTE: You must provide these! I'm using placeholders or trying to read from env
-SUPABASE_URL = os.getenv("NEXT_PUBLIC_SUPABASE_URL", "https://your-project.supabase.co")
-SUPABASE_KEY = os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "your-anon-role-key") 
-# Note: For upload, Anon key is fine if RLS policies allow public upload to 'media' bucket. 
-# If not, you need SERVICE_ROLE_KEY.
-# SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "your-service-role-key")
+SUPABASE_URL = os.getenv("NEXT_PUBLIC_SUPABASE_URL")
+SUPABASE_KEY = os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY") 
 
 BUCKET_NAME = "media"
-FOLDER_PATH = "washed_videos" # Folder containing videos to upload
+FOLDER_PATH = "washed_videos" 
 
 # --- 🧠 SMART CAPTIONS LIST ---
 VIRAL_CAPTIONS = [
@@ -41,19 +40,59 @@ VIRAL_CAPTIONS = [
 ]
 
 try:
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    from supabase import create_client, Client, ClientOptions
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        raise ValueError("Supabase ENV variables missing")
+        
+    # Increase timeout for upload (default is usually short)
+    opts = ClientOptions().replace(postgrest_client_timeout=300, storage_client_timeout=300)
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY, options=opts)
 except Exception as e:
-    print(f"⚠️ Supabase Config Missing. make sure to set SUPABASE_URL and SUPABASE_KEY via env or hardcode.")
-    print(f"Error: {e}")
+    print(f"⚠️ Supabase Config Error: {e}")
+    print("Make sure .env file exists in the project root and requirements are installed.")
     exit(1)
 
+def wash_video(file_path):
+    """Appends random bytes to the file to change its hash (Washing)"""
+    try:
+        print(f"🚿 Washing video (changing hash)...")
+        with open(file_path, "ab") as f:
+            # Append random junk data (1KB - 10KB)
+            junk_size = random.randint(1024, 10240)
+            f.write(os.urandom(junk_size))
+        print(f"✨ Video washed! Hash changed.")
+        return True
+    except Exception as e:
+        print(f"❌ Washing failed: {e}")
+        return False
+
 def process_file(file_path):
+    if not os.path.exists(file_path):
+        print(f"❌ File not found: {file_path}")
+        return
+
     file_name = os.path.basename(file_path)
     print(f"\n🎥 Picked: {file_name}")
+
+    # 0. Wash Video (Hash Change)
+    if not wash_video(file_path):
+        print("Skipping upload due to wash failure.")
+        return
 
     # 1. Random Caption Pick Karo
     selected_caption = random.choice(VIRAL_CAPTIONS)
     print(f"📝 Caption: {selected_caption}")
+
+    # 1.5 Debug: Check Buckets
+    try:
+        print("🔍 Checking buckets...")
+        buckets = supabase.storage.list_buckets()
+        bucket_names = [b.name for b in buckets]
+        print(f"   Available buckets: {bucket_names}")
+        if BUCKET_NAME not in bucket_names:
+            print(f"⚠️ Bucket '{BUCKET_NAME}' NOT found in list! Please run valid migrations.")
+    except Exception as e:
+        print(f"⚠️ Failed to list buckets: {e}")
 
     # 2. Upload to Supabase Storage
     public_url = ""
@@ -64,14 +103,12 @@ def process_file(file_path):
         with open(file_path, 'rb') as f:
             # Upload with Upsert
             res = supabase.storage.from_(BUCKET_NAME).upload(
-                path=f"uploads/{file_name}", # Changed folder to 'uploads' to match previous logic or 'pool'
+                path=f"uploads/{file_name}", 
                 file=f,
                 file_options={"content-type": "video/mp4", "upsert": "true"}
             )
         
         # Get Public URL
-        # Supabase Python client returns public URL differently sometimes, 
-        # but get_public_url is standard.
         public_url = supabase.storage.from_(BUCKET_NAME).get_public_url(f"uploads/{file_name}")
         print(f"✅ Uploaded: {public_url}")
 
