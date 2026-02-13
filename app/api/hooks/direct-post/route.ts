@@ -47,50 +47,15 @@ export async function POST(request: NextRequest) {
         console.log(`[DirectPost] Creating container for user ${userId}`)
         const containerId = await createReelsContainer(user.access_token, videoUrl, caption || "")
 
-        // 5. Wait for Instagram to process (poll every 3s, max ~30s)
-        let status = "IN_PROGRESS"
-        let attempts = 0
-        while (status === "IN_PROGRESS" && attempts < 10) {
-            await delay(3000)
-            status = await getContainerStatus(user.access_token, containerId)
-            attempts++
-            console.log(`[DirectPost] Status: ${status} (attempt ${attempts}/10)`)
-        }
-
-        if (status !== "FINISHED") {
-            // Log failure
-            await supabase.from("reels_posts").insert({
-                user_id: userId,
-                video_url: videoUrl,
-                caption: caption || "",
-                ig_container_id: containerId,
-                status: "FAILED",
-                error_message: `Processing timed out. Final status: ${status}`
-            })
-            return NextResponse.json({ error: `Processing failed: ${status}` }, { status: 500 })
-        }
-
-        // 6. Publish!
-        const mediaId = await publishContainer(user.access_token, containerId)
-        console.log(`[DirectPost] Published! Media ID: ${mediaId}`)
-
-        // 7. Log success
-        await supabase.from("reels_posts").insert({
-            user_id: userId,
-            video_url: videoUrl,
-            caption: caption || "",
-            ig_container_id: containerId,
-            ig_media_id: mediaId,
-            status: "PUBLISHED",
-            published_at: new Date().toISOString()
-        })
-
+        // 5. Return immediately (Client handles polling)
+        // This avoids Vercel 10s/60s function timeouts
         return NextResponse.json({
             success: true,
-            message: "Reel published to Instagram!",
-            mediaId,
-            containerId
-        })
+            status: "IN_PROGRESS",
+            message: "Container created. Poll status endpoint to publish.",
+            containerId,
+            userId // Return userId for auth in next step
+        }, { status: 202 })
 
     } catch (error: any) {
         console.error("[DirectPost] Error:", error)
