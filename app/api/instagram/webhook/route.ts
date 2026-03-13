@@ -49,35 +49,26 @@ export async function POST(request: NextRequest) {
         .single()
 
       // ============================================================
-      // 🔍 SMART FALLBACK: Extract actual IG ID from payload
+      // 🔍 FALLBACK 1: Extract actual IG ID from payload
       // ============================================================
       if (!user) {
         console.log(`[v0] ⚠️ ID ${webhookId} not found in DB. Trying payload fallback...`)
 
-        // Collect all possible IDs from inside the webhook payload
         const candidateIds = new Set<string>()
 
-        // From comments: the media owner is OUR user
         if (entry.changes) {
           for (const change of entry.changes) {
-            if (change.value?.media?.owner?.id) {
-              candidateIds.add(String(change.value.media.owner.id))
-            }
+            if (change.value?.media?.owner?.id) candidateIds.add(String(change.value.media.owner.id))
           }
         }
-
-        // From DMs: the recipient is OUR user
         if (entry.messaging) {
           for (const event of entry.messaging) {
-            if (event.recipient?.id) {
-              candidateIds.add(String(event.recipient.id))
-            }
+            if (event.recipient?.id) candidateIds.add(String(event.recipient.id))
           }
         }
 
-        // Try each candidate ID against the DB
         for (const candidateId of candidateIds) {
-          if (candidateId === webhookId) continue // Already tried this one
+          if (candidateId === webhookId) continue
           const { data: fallbackUser } = await supabase
             .from("users")
             .select("*")
@@ -85,14 +76,41 @@ export async function POST(request: NextRequest) {
             .single()
 
           if (fallbackUser) {
-            console.log(`[v0] ✅ Fallback matched! ID ${candidateId} → ${fallbackUser.username}. Auto-linking ${webhookId}.`)
-            // Save the new webhook ID so future lookups work directly
-            await supabase
-              .from("users")
-              .update({ page_id: webhookId })
-              .eq("id", fallbackUser.id)
+            console.log(`[v0] ✅ Payload fallback matched! ${candidateId} → ${fallbackUser.username}`)
+            await supabase.from("users").update({ page_id: webhookId }).eq("id", fallbackUser.id)
             user = fallbackUser
             break
+          }
+        }
+      }
+
+      // ============================================================
+      // 🔍 FALLBACK 2: Token verification (tests ALL users)
+      // Only runs once per unknown ID, then saves the mapping forever
+      // ============================================================
+      if (!user) {
+        console.log(`[v0] 🔎 Trying token verification for ${webhookId}...`)
+        const { data: allUsers } = await supabase.from("users").select("*")
+
+        if (allUsers) {
+          for (const candidate of allUsers) {
+            if (!candidate.access_token) continue
+            try {
+              const testRes = await fetch(
+                `https://graph.instagram.com/v24.0/${webhookId}?fields=id&access_token=${candidate.access_token}`
+              )
+              if (testRes.ok) {
+                console.log(`[v0] ✅ Token verified! ${webhookId} belongs to ${candidate.username}. Saving permanently.`)
+                await supabase
+                  .from("users")
+                  .update({ page_id: webhookId })
+                  .eq("id", candidate.id)
+                user = candidate
+                break
+              }
+            } catch (e) {
+              // Network error, skip this user
+            }
           }
         }
       }
