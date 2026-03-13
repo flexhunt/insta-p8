@@ -89,11 +89,11 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
   const canProceedStep1 = () => {
     const isStoryMentionOrReaction = triggerSource === 'story' && (storyTriggerType === 'mention' || storyTriggerType === 'reaction')
     if (replyToAll && !selectedReel) {
-      toast.error("Post select karo", { description: "Reply-All ke liye ek post select karna zaroori hai." })
+      toast.error("Select a Post", { description: "Reply-All requires selecting a specific post." })
       return false
     }
     if (!replyToAll && !isStoryMentionOrReaction && triggers.length === 0) {
-      toast.error("Keywords add karo", { description: "Kam se kam ek keyword trigger daalo." })
+      toast.error("Add Keywords", { description: "Add at least one keyword trigger." })
       return false
     }
     return true
@@ -101,11 +101,11 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
 
   const canProceedStep2 = () => {
     if (type === "text" && !messageText.trim()) {
-      toast.error("Reply message likho", { description: "Kya reply jaayega wo toh likho!" })
+      toast.error("Missing Reply", { description: "Enter the message to auto-send." })
       return false
     }
     if (type === "card" && !cardTitle.trim()) {
-      toast.error("Card ka title daalo", { description: "Rich card me title zaroori hai." })
+      toast.error("Missing Title", { description: "Rich cards need a title." })
       return false
     }
     return true
@@ -113,7 +113,7 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
 
   const handleSubmit = async () => {
     if (!name.trim()) {
-      toast.error("Rule ka naam do", { description: "Apni automation ko ek naam do." })
+      toast.error("Name Required", { description: "Give your automation a name." })
       return
     }
 
@@ -288,7 +288,7 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
               </div>
             )}
           </div>
-          <p className="text-[10px] text-neutral-600 mt-1 text-right">Preview — yahi message jayega DM me</p>
+          <p className="text-[10px] text-neutral-600 mt-1 text-right">Preview — this is how the DM will look</p>
         </div>
       </div>
     )
@@ -300,16 +300,16 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
     <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
       <div>
         <h3 className="text-lg font-bold text-white mb-1">
-          {triggerSource === 'comment' ? '💬 Kab reply kare?' :
-            triggerSource === 'dm' ? '📩 Kab reply kare?' :
-              '📸 Story pe kab react kare?'}
+          {triggerSource === 'comment' ? '💬 When to reply?' :
+            triggerSource === 'dm' ? '📩 When to reply?' :
+              '📸 Story trigger'}
         </h3>
         <p className="text-xs text-neutral-500">
           {triggerSource === 'comment' 
-            ? 'Jab koi ye words comment kare, auto reply chalu ho jaayega.'
+            ? 'Auto-reply when someone comments these keywords.'
             : triggerSource === 'dm'
-              ? 'Jab koi ye words DM kare, auto reply chalu ho jaayega.'
-              : 'Jab koi aapki story ke saath interact kare.'}
+              ? 'Auto-reply when someone DMs these keywords.'
+              : 'Engage when someone interacts with your story.'}
         </p>
       </div>
 
@@ -353,8 +353,8 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
             <Sparkles className="w-5 h-5" />
           </div>
           <div className="text-left flex-1">
-            <p className={`text-sm font-bold ${replyToAll ? 'text-emerald-400' : 'text-white'}`}>Sabko Reply Karo</p>
-            <p className="text-[11px] text-neutral-500">Ek specific post pe har comment ka reply</p>
+            <p className={`text-sm font-bold ${replyToAll ? 'text-emerald-400' : 'text-white'}`}>Reply to All Comments</p>
+            <p className="text-[11px] text-neutral-500">Auto-reply to every comment on a specific post</p>
           </div>
           <div className={`w-5 h-5 rounded-full border-2 transition-all ${
             replyToAll ? 'border-emerald-500 bg-emerald-500' : 'border-white/20'
@@ -379,7 +379,7 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
                   'e.g. hello, hi, menu'
             }
           />
-          <p className="text-[10px] text-neutral-600 ml-1">Enter ya comma se add karo</p>
+          <p className="text-[10px] text-neutral-600 ml-1">Press Enter or comma to add</p>
         </div>
       )}
 
@@ -408,7 +408,7 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
                 </>
               ) : (
                 <span className="text-sm text-neutral-500">
-                  {replyToAll ? '📌 Post select karo...' : '📌 Optional — koi bhi post pe (tap to pick)'}
+                  {replyToAll ? '📌 Select a post...' : '📌 Optional — applies to any post (tap to pick)'}
                 </span>
               )}
             </button>
@@ -422,8 +422,8 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
   const renderStep2 = () => (
     <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
       <div>
-        <h3 className="text-lg font-bold text-white mb-1">✉️ Kya bhejna hai?</h3>
-        <p className="text-xs text-neutral-500">Reply message type karo — ye DM me jayega automatically.</p>
+        <h3 className="text-lg font-bold text-white mb-1">✉️ What to send?</h3>
+        <p className="text-xs text-neutral-500">Type the auto-reply message — this goes as a DM.</p>
       </div>
 
       {/* Response type toggle */}
@@ -530,7 +530,7 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
     <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
       <div>
         <h3 className="text-lg font-bold text-white mb-1">🚀 Ready to launch!</h3>
-        <p className="text-xs text-neutral-500">Naam do aur options set karo. Phir go!</p>
+        <p className="text-xs text-neutral-500">Name it, set options, and you're good to go.</p>
       </div>
 
       <div className="space-y-2">
@@ -557,7 +557,7 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess }: CreateRuleF
         </div>
         <div className="text-left flex-1">
           <p className={`text-sm font-bold ${checkFollow ? 'text-amber-400' : 'text-white'}`}>Follow Gate</p>
-          <p className="text-[11px] text-neutral-500">Sirf followers ko reply jayega</p>
+          <p className="text-[11px] text-neutral-500">Only reply to your followers</p>
         </div>
         <div className={`w-5 h-5 rounded-full border-2 transition-all ${
           checkFollow ? 'border-amber-500 bg-amber-500' : 'border-white/20'
