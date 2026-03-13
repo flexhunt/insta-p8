@@ -49,56 +49,53 @@ export async function POST(request: NextRequest) {
         .single()
 
       // ============================================================
-      // 🚨 SELF-HEALING LOGIC (The Fix for Fresh Logins)
+      // 🔍 SMART FALLBACK: Extract actual IG ID from payload
       // ============================================================
       if (!user) {
-        console.log(`[v0] ⚠️ ID ${webhookId} not found in DB. Attempting Self-Heal...`)
+        console.log(`[v0] ⚠️ ID ${webhookId} not found in DB. Trying payload fallback...`)
 
-        // 1. Find the most recently active user
-        const { data: recentUser } = await supabase
-          .from("users")
-          .select("*")
-          .order("updated_at", { ascending: false })
-          .limit(1)
-          .single()
+        // Collect all possible IDs from inside the webhook payload
+        const candidateIds = new Set<string>()
 
-        if (recentUser && recentUser.access_token) {
-          console.log(`[v0] 🧪 Testing candidate: ${recentUser.username}`)
-
-          // 2. Test if this user's token works for this Webhook ID
-          try {
-            // We try to fetch the Webhook ID using the user's token.
-            // If this succeeds, IT'S A MATCH.
-            const testUrl = `https://graph.instagram.com/v24.0/${webhookId}?fields=id&access_token=${recentUser.access_token}`
-            const testRes = await fetch(testUrl)
-
-            if (testRes.ok) {
-              console.log(`[v0] ✅ MATCH CONFIRMED! Auto-linking ID ${webhookId} to ${recentUser.username}`)
-
-              // 3. UPDATE THE DB AUTOMATICALLY
-              // We save this ID as the 'business_account_id' (or page_id) so it works forever.
-              await supabase
-                .from("users")
-                .update({
-                  business_account_id: webhookId, // Save as main ID
-                  page_id: webhookId, // Save as Shadow ID too (safety)
-                })
-                .eq("id", recentUser.id)
-
-              // 4. Use this user for the current message
-              user = recentUser
-              // Update local object so we can reply now
-              user.business_account_id = webhookId
-            } else {
-              console.log(`[v0] ❌ Token mismatch. This ID does not belong to ${recentUser.username}`)
+        // From comments: the media owner is OUR user
+        if (entry.changes) {
+          for (const change of entry.changes) {
+            if (change.value?.media?.owner?.id) {
+              candidateIds.add(String(change.value.media.owner.id))
             }
-          } catch (e) {
-            console.error("[v0] Self-Heal Verification Failed", e)
+          }
+        }
+
+        // From DMs: the recipient is OUR user
+        if (entry.messaging) {
+          for (const event of entry.messaging) {
+            if (event.recipient?.id) {
+              candidateIds.add(String(event.recipient.id))
+            }
+          }
+        }
+
+        // Try each candidate ID against the DB
+        for (const candidateId of candidateIds) {
+          if (candidateId === webhookId) continue // Already tried this one
+          const { data: fallbackUser } = await supabase
+            .from("users")
+            .select("*")
+            .or(`business_account_id.eq.${candidateId},page_id.eq.${candidateId}`)
+            .single()
+
+          if (fallbackUser) {
+            console.log(`[v0] ✅ Fallback matched! ID ${candidateId} → ${fallbackUser.username}. Auto-linking ${webhookId}.`)
+            // Save the new webhook ID so future lookups work directly
+            await supabase
+              .from("users")
+              .update({ page_id: webhookId })
+              .eq("id", fallbackUser.id)
+            user = fallbackUser
+            break
           }
         }
       }
-      // ============================================================
-      // END SELF-HEALING
       // ============================================================
 
       if (!user) {
