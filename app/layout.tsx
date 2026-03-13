@@ -9,9 +9,8 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Instagram OAuth Login",
-  description: "Instagram Business Login with OAuth 2.0",
-  generator: "v0.app",
+  title: "InstaAuto — Instagram Automation",
+  description: "Auto-reply to comments, DMs, and stories with keyword triggers.",
   icons: {
     icon: [
       {

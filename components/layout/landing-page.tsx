@@ -1,6 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { Zap, MessageCircle, Shield, Clock } from "lucide-react"
 
 export function LandingPage() {
   const handleLogin = () => {
@@ -8,77 +9,88 @@ export function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white selection:bg-white selection:text-black overflow-x-hidden">
+    <div className="min-h-screen bg-black text-white selection:bg-white selection:text-black overflow-hidden">
+      {/* Subtle bg glow */}
       <div className="fixed inset-0 z-0">
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-20 grayscale brightness-50" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black via-transparent to-black" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-white/[0.03] rounded-full blur-[120px]" />
       </div>
 
-      <nav className="relative z-50 h-24 flex items-center justify-between px-12 border-b border-white/5 backdrop-blur-sm">
-        <div className="flex items-center gap-12">
-          <span className="text-2xl font-serif tracking-tighter lowercase">gamma.</span>
-          <div className="hidden md:flex gap-8 text-[10px] font-bold uppercase tracking-[0.2em] opacity-40">
-            <a href="#" className="hover:opacity-100 transition-opacity">
-              Artists
-            </a>
-            <a href="#" className="hover:opacity-100 transition-opacity">
-              News
-            </a>
-            <a href="#" className="hover:opacity-100 transition-opacity">
-              Distribution
-            </a>
+      <nav className="relative z-50 h-20 flex items-center justify-between px-6 md:px-12 border-b border-white/5">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-white text-black rounded-lg flex items-center justify-center">
+            <Zap className="w-4 h-4" />
           </div>
+          <span className="text-lg font-bold tracking-tight">InstaAuto</span>
         </div>
         <Button
           onClick={handleLogin}
           variant="outline"
-          className="border-white/20 rounded-full px-8 text-[10px] font-bold uppercase tracking-widest hover:bg-white hover:text-black transition-all bg-transparent"
+          className="border-white/20 rounded-full px-6 text-xs font-bold uppercase tracking-widest hover:bg-white hover:text-black transition-all bg-transparent"
         >
-          Connect Instagram
+          Login
         </Button>
       </nav>
 
-      <main className="relative z-10 pt-32 px-12 pb-48">
-        <div className="grid md:grid-cols-2 gap-24 items-end">
-          <div className="space-y-12">
-            <h1 className="text-8xl md:text-[10rem] font-serif leading-[0.85] tracking-tighter">
-              Auto
-              <br />
-              Engage.
-            </h1>
-            <p className="max-w-md text-lg text-white/50 leading-relaxed font-light">
-              A minimalist infrastructure for premium Instagram automation. Built for the next generation of digital
-              artists and labels.
-            </p>
-            <div className="flex gap-4">
-              <Button
-                onClick={handleLogin}
-                className="bg-white text-black h-16 px-12 rounded-full font-bold text-xs uppercase tracking-[0.2em] hover:scale-105 transition-transform"
-              >
-                Start Flow
-              </Button>
-            </div>
+      <main className="relative z-10 pt-20 md:pt-32 px-6 md:px-12 pb-24">
+        <div className="max-w-3xl mx-auto text-center space-y-8">
+          <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 text-xs text-neutral-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Instagram Automation Tool
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <FeatureItem title="Artists" />
-            <FeatureItem title="Shop" />
-            <FeatureItem title="Nashville" />
-            <FeatureItem title="Lagos" />
+          <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.1]">
+            Auto Reply.
+            <br />
+            <span className="text-neutral-500">Auto Grow.</span>
+          </h1>
+
+          <p className="text-lg text-neutral-500 max-w-lg mx-auto leading-relaxed">
+            Set keyword triggers on comments & DMs. 
+            Let <strong className="text-white">InstaAuto</strong> handle the replies — 
+            so you can focus on creating content.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button
+              onClick={handleLogin}
+              className="bg-white text-black h-14 px-10 rounded-full font-bold text-sm hover:scale-105 transition-transform shadow-lg shadow-white/10"
+            >
+              Connect Instagram
+            </Button>
           </div>
+        </div>
+
+        {/* Features */}
+        <div className="max-w-4xl mx-auto mt-24 grid md:grid-cols-3 gap-4">
+          <FeatureCard
+            icon={<MessageCircle className="w-5 h-5" />}
+            title="Comment & DM Replies"
+            description="Auto-reply to keywords in comments and direct messages instantly."
+          />
+          <FeatureCard
+            icon={<Shield className="w-5 h-5" />}
+            title="Follow Gate"
+            description="Only reply to followers — grow your community the smart way."
+          />
+          <FeatureCard
+            icon={<Clock className="w-5 h-5" />}
+            title="Always On"
+            description="Works 24/7. Never miss a lead, even when you're sleeping."
+          />
         </div>
       </main>
     </div>
   )
 }
 
-function FeatureItem({ title }: { title: string }) {
+function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
   return (
-    <div className="aspect-[4/3] border border-white/5 bg-white/[0.02] flex items-end p-6 group cursor-pointer overflow-hidden rounded-xl relative">
-      <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-      <span className="text-4xl font-serif tracking-tighter group-hover:-translate-y-2 transition-transform duration-500">
-        {title}
-      </span>
+    <div className="p-6 rounded-2xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/10 transition-all group">
+      <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-neutral-400 group-hover:text-white group-hover:bg-white/10 transition-all mb-4">
+        {icon}
+      </div>
+      <h3 className="text-sm font-bold text-white mb-1">{title}</h3>
+      <p className="text-xs text-neutral-500 leading-relaxed">{description}</p>
     </div>
   )
 }
