@@ -53,7 +53,11 @@ export async function POST(request: NextRequest) {
 
     const tokenData = await tokenRes.json()
     if (!tokenRes.ok) {
-      console.error("[v0] Token Error:", tokenData)
+      if (tokenData.error_message?.includes("authorization code has been used")) {
+        // Harmless double-fire from React StrictMode or double clicks
+        return NextResponse.json({ error: "Code already used" }, { status: 400 })
+      }
+      console.error("[v0] 🔴 Token Error:", JSON.stringify(tokenData, null, 2))
       return NextResponse.json({ error: tokenData.error_description || "Token failed" }, { status: 400 })
     }
 
