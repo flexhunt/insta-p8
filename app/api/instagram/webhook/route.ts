@@ -168,16 +168,23 @@ export async function POST(request: NextRequest) {
               const randomReply = replies[Math.floor(Math.random() * replies.length)]
 
               // Public Reply
-              await fetch(
-                `https://graph.instagram.com/v24.0/${commentId}/replies?access_token=${encodeURIComponent(user.access_token)}`,
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ message: randomReply }),
-                },
-              ).catch((e) => console.error(e))
+              try {
+                const pubRes = await fetch(
+                  `https://graph.instagram.com/v24.0/${commentId}/replies?access_token=${encodeURIComponent(user.access_token)}`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ message: randomReply }),
+                  },
+                )
+                const pubJson = await pubRes.json()
+                if (pubJson.error) console.error("[v0] 🔴 Public Reply Failed:", JSON.stringify(pubJson.error))
+                else console.log("[v0] 🟢 Public Reply Sent!", pubJson)
+              } catch (e) {
+                console.error("[v0] 🔴 Public Reply Network Error:", e)
+              }
 
-              // Private Reply
+              // Private Reply (DM)
               const apiBody: any = { recipient: { comment_id: commentId } }
 
               if (content.message) {
@@ -207,10 +214,18 @@ export async function POST(request: NextRequest) {
                 }
               }
 
-              await fetch(
-                `https://graph.instagram.com/v24.0/me/messages?access_token=${encodeURIComponent(user.access_token)}`,
-                { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(apiBody) },
-              ).catch((e) => console.error(e))
+              console.log("[v0] 📤 DM Body:", JSON.stringify(apiBody))
+              try {
+                const dmRes = await fetch(
+                  `https://graph.instagram.com/v24.0/me/messages?access_token=${encodeURIComponent(user.access_token)}`,
+                  { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(apiBody) },
+                )
+                const dmJson = await dmRes.json()
+                if (dmJson.error) console.error("[v0] 🔴 Private DM Failed:", JSON.stringify(dmJson.error))
+                else console.log("[v0] 🟢 Private DM Sent!", dmJson)
+              } catch (e) {
+                console.error("[v0] 🔴 Private DM Network Error:", e)
+              }
             }
           }
         }
