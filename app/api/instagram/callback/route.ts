@@ -67,50 +67,28 @@ export async function POST(request: NextRequest) {
     const accessToken = longData.access_token || shortToken
     const expiresIn = longData.expires_in || 5184000
 
-    // 4. Get Username
+    // 4. Get Username + IG Professional Account ID (webhook-matching ID)
+    // Per Meta docs: /me?fields=user_id returns the IG_ID that matches webhook entry.id
+    // https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/get-started
     let username = `user_${loginUserId}`
-    try {
-      const igRes = await fetch(`https://graph.instagram.com/me?fields=username&access_token=${accessToken}`)
-      const igData = await igRes.json()
-      if (igData.username) username = igData.username
-    } catch (e) {}
+    let businessAccountId = loginUserId // fallback
 
-    // 5. Get Business Account ID (the "1784" webhook ID)
-    // Strategy: Try multiple methods to ensure we ALWAYS get it.
-    let businessAccountId: string | null = null
-
-    // Method A: Business Discovery API
     try {
-      const encodedUsername = encodeURIComponent(username)
-      const discUrl = `https://graph.instagram.com/v24.0/${loginUserId}?fields=business_discovery.username(${encodedUsername}){id}&access_token=${accessToken}`
-      const discRes = await fetch(discUrl)
-      const discData = await discRes.json()
-      if (discData.business_discovery?.id) {
-        businessAccountId = discData.business_discovery.id
-        console.log(`[v0] 🎯 Method A (Discovery): ${businessAccountId}`)
+      const meRes = await fetch(
+        `https://graph.instagram.com/v24.0/me?fields=user_id,username&access_token=${accessToken}`
+      )
+      const meData = await meRes.json()
+      console.log("[v0] 📋 /me response:", JSON.stringify(meData))
+
+      if (meData.username) username = meData.username
+      if (meData.user_id) {
+        businessAccountId = meData.user_id.toString()
+        console.log(`[v0] 🎯 Got IG Professional Account ID (user_id): ${businessAccountId}`)
+      } else {
+        console.warn(`[v0] ⚠️ /me did not return user_id, using loginUserId: ${loginUserId}`)
       }
     } catch (e) {
-      console.warn("[v0] Discovery failed:", e)
-    }
-
-    // Method B: GET /me?fields=id (returns the IG-scoped ID which IS the webhook ID)
-    if (!businessAccountId) {
-      try {
-        const meRes = await fetch(`https://graph.instagram.com/v24.0/me?fields=id,username&access_token=${accessToken}`)
-        const meData = await meRes.json()
-        if (meData.id && meData.id !== loginUserId) {
-          businessAccountId = meData.id
-          console.log(`[v0] 🎯 Method B (/me): ${businessAccountId}`)
-        }
-      } catch (e) {
-        console.warn("[v0] /me fallback failed:", e)
-      }
-    }
-
-    // Method C: If still nothing, use loginUserId as last resort
-    if (!businessAccountId) {
-      businessAccountId = loginUserId
-      console.log(`[v0] ⚠️ Method C (loginUserId fallback): ${businessAccountId}`)
+      console.error("[v0] /me request failed:", e)
     }
 
     // 6. Save/Update User
