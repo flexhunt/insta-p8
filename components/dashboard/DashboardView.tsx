@@ -1,8 +1,10 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Card } from "@/components/ui/card"
-import { Sparkles } from "lucide-react"
+import { Sparkles, Brain, Loader2 } from "lucide-react"
 import { Sidebar } from "@/components/layout/sidebar"
+import { Switch } from "@/components/ui/switch"
 // 👇 1. Import is here (Good)
 import { IceBreakers } from "@/components/dashboard/IceBreakers"
 import { AutomationList } from "@/components/dashboard/AutomationList"
@@ -26,6 +28,34 @@ export function DashboardView({
   onLogout,
   onRefresh,
 }: DashboardViewProps) {
+  const [aiEnabled, setAiEnabled] = useState(false)
+  const [aiLoading, setAiLoading] = useState(true)
+  const [aiToggling, setAiToggling] = useState(false)
+
+  useEffect(() => {
+    if (!userId) return
+    fetch(`/api/groq/auto-reply?userId=${userId}`)
+      .then(res => res.json())
+      .then(data => setAiEnabled(data.enabled ?? false))
+      .catch(() => {})
+      .finally(() => setAiLoading(false))
+  }, [userId])
+
+  const handleToggleAI = async () => {
+    if (aiToggling) return
+    setAiToggling(true)
+    const newState = !aiEnabled
+    try {
+      const res = await fetch("/api/groq/auto-reply", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, enabled: newState }),
+      })
+      if (res.ok) setAiEnabled(newState)
+    } catch {}
+    setAiToggling(false)
+  }
+
   return (
     <div className="flex h-screen bg-black text-white overflow-hidden font-sans selection:bg-purple-500/30">
       <Sidebar username={username} onLogout={onLogout} />
@@ -42,6 +72,23 @@ export function DashboardView({
             <span className="text-purple-400">Automations</span>
           </div>
           <div className="flex items-center gap-3">
+            {/* AI Auto-Reply Toggle */}
+            {aiLoading ? (
+              <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
+            ) : (
+              <button
+                onClick={handleToggleAI}
+                disabled={aiToggling}
+                className={`flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-bold tracking-wide uppercase transition-all ${
+                  aiEnabled
+                    ? "bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20"
+                    : "bg-white/5 border border-white/10 text-muted-foreground hover:bg-white/10"
+                }`}
+              >
+                <Brain className={`w-3.5 h-3.5 ${aiToggling ? "animate-pulse" : ""}`} />
+                {aiToggling ? "..." : aiEnabled ? "AI ON" : "AI OFF"}
+              </button>
+            )}
             <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-3 py-1 text-[11px] font-bold text-emerald-400 tracking-wide uppercase">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>

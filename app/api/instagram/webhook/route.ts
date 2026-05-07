@@ -484,6 +484,97 @@ export async function POST(request: NextRequest) {
           }
 
           if (!match) {
+            // ============================================================
+            // 🤖 GROQ AI AUTO-REPLY FALLBACK
+            // ============================================================
+            if (user.groq_auto_reply_enabled && triggerType === "keyword") {
+              console.log(`[v0] 🤖 No keyword match — trying AI for ${senderId}`)
+              try {
+                const gatewaySecret = process.env.GATEWAY_SECRET
+                if (!gatewaySecret) {
+                  console.log("[v0] ❌ GATEWAY_SECRET not set")
+                  continue
+                }
+
+                const systemPrompt = `You are an AI assistant managing Instagram DMs for @${user.username}. 
+Reply naturally and helpfully to the user's message. Keep replies short (1-3 sentences), friendly, and in the same language as the user's message.
+Never mention you are an AI. Act like a real person running this Instagram account.
+If the user asks something you don't know, politely say you'll get back to them.`
+
+                const aiRes = await fetch("https://triderai.vercel.app/api/chat", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${gatewaySecret}`,
+                  },
+                  body: JSON.stringify({
+                    model: "openai/gpt-oss-120b",
+                    messages: [
+                      { role: "system", content: systemPrompt },
+                      { role: "user", content: triggerValue },
+                    ],
+                    max_tokens: 200,
+                    temperature: 0.7,
+                  }),
+                })
+
+                if (!aiRes.ok) {
+                  console.log(`[v0] ❌ AI proxy error: ${aiRes.status}`)
+                  continue
+                }
+
+                const aiData = await aiRes.json()
+                const aiReply = aiData.choices?.[0]?.message?.content?.trim()
+
+                if (!aiReply) {
+                  console.log("[v0] ❌ AI returned empty reply")
+                  continue
+                }
+
+                console.log(`[v0] 🤖 AI Reply: "${aiReply}"`)
+
+                // Send AI reply via Instagram
+                const aiApiBody = {
+                  recipient: { id: senderId },
+                  message: { text: aiReply },
+                }
+
+                const sendRes = await fetch(
+                  `https://graph.instagram.com/v24.0/me/messages?access_token=${encodeURIComponent(user.access_token)}`,
+                  { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(aiApiBody) },
+                )
+                const sendJson = await sendRes.json()
+                if (sendJson.error) {
+                  console.error("[v0] 🔴 AI Reply Send Failed:", sendJson.error)
+                } else {
+                  console.log("[v0] 🟢 AI Reply Sent!")
+
+                  // Save AI reply to DB
+                  const { data: aiConv } = await supabase
+                    .from("conversations")
+                    .select("id")
+                    .eq("user_id", user.id)
+                    .eq("recipient_id", senderId)
+                    .single()
+
+                  if (aiConv) {
+                    await supabase.from("messages").insert({
+                      id: `mid_ai_${Date.now()}_${Math.random()}`,
+                      conversation_id: aiConv.id,
+                      user_id: user.id,
+                      sender_id: user.business_account_id,
+                      sender_username: user.username,
+                      content: aiReply,
+                      is_from_instagram: false,
+                    })
+                  }
+                }
+              } catch (groqErr) {
+                console.error("[v0] 🔴 Groq AI Error:", groqErr)
+              }
+              continue
+            }
+
             console.log(`[v0] ❌ No match.`)
             continue
           }
