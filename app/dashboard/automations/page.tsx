@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from "react"
 import { useInstagramSession } from "@/hooks/use-instagram-session"
 import { AutomationList } from "@/components/dashboard/AutomationList"
 import { CreateRuleForm } from "@/components/dashboard/CreateRuleForm"
-import { MessageCircle, Send, Sparkles, Zap, Plus } from "lucide-react"
+import { MessageCircle, Send, Sparkles, Zap, Plus, Brain, Loader2 } from "lucide-react"
 import { IceBreakers } from "@/components/dashboard/IceBreakers"
 import type { Automation } from "@/lib/types"
 
@@ -14,6 +14,33 @@ export default function AutomationsPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [activeTab, setActiveTab] = useState<'comment' | 'dm' | 'story'>('comment')
     const [showCreateForm, setShowCreateForm] = useState(false)
+    const [aiEnabled, setAiEnabled] = useState(false)
+    const [aiLoading, setAiLoading] = useState(true)
+    const [aiToggling, setAiToggling] = useState(false)
+
+    useEffect(() => {
+        if (!userId) return
+        fetch(`/api/groq/auto-reply?userId=${userId}`)
+            .then(res => res.json())
+            .then(data => setAiEnabled(data.enabled ?? false))
+            .catch(() => {})
+            .finally(() => setAiLoading(false))
+    }, [userId])
+
+    const handleToggleAI = async () => {
+        if (aiToggling) return
+        setAiToggling(true)
+        const newState = !aiEnabled
+        try {
+            const res = await fetch("/api/groq/auto-reply", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId, enabled: newState }),
+            })
+            if (res.ok) setAiEnabled(newState)
+        } catch {}
+        setAiToggling(false)
+    }
 
     const fetchAutomations = useCallback(async () => {
         if (!userId) return
@@ -67,17 +94,36 @@ export default function AutomationsPage() {
                             {automations.length} active rule{automations.length !== 1 ? 's' : ''}
                         </p>
                     </div>
-                    <button
-                        onClick={() => setShowCreateForm(!showCreateForm)}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95 ${
-                            showCreateForm 
-                                ? 'bg-white/10 text-white border border-white/20' 
-                                : 'bg-white text-black hover:bg-white/90 shadow-lg shadow-white/5'
-                        }`}
-                    >
-                        <Plus className={`w-4 h-4 transition-transform duration-200 ${showCreateForm ? 'rotate-45' : ''}`} />
-                        {showCreateForm ? 'Close' : 'New Rule'}
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {/* AI Auto-Reply Toggle */}
+                        {aiLoading ? (
+                            <Loader2 className="w-4 h-4 text-neutral-500 animate-spin" />
+                        ) : (
+                            <button
+                                onClick={handleToggleAI}
+                                disabled={aiToggling}
+                                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold tracking-wide uppercase transition-all ${
+                                    aiEnabled
+                                        ? 'bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20'
+                                        : 'bg-white/5 border border-white/10 text-neutral-500 hover:bg-white/10'
+                                }`}
+                            >
+                                <Brain className={`w-3.5 h-3.5 ${aiToggling ? 'animate-pulse' : ''}`} />
+                                {aiToggling ? '...' : aiEnabled ? 'AI ON' : 'AI OFF'}
+                            </button>
+                        )}
+                        <button
+                            onClick={() => setShowCreateForm(!showCreateForm)}
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95 ${
+                                showCreateForm 
+                                    ? 'bg-white/10 text-white border border-white/20' 
+                                    : 'bg-white text-black hover:bg-white/90 shadow-lg shadow-white/5'
+                            }`}
+                        >
+                            <Plus className={`w-4 h-4 transition-transform duration-200 ${showCreateForm ? 'rotate-45' : ''}`} />
+                            {showCreateForm ? 'Close' : 'New Rule'}
+                        </button>
+                    </div>
                 </div>
 
                 {/* Pill Tabs */}
