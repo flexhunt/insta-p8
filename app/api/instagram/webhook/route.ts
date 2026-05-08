@@ -558,6 +558,16 @@ STRICT RULES — follow every single one:
                   { role: "user", content: triggerValue },
                 ]
 
+                // Send typing indicator before AI generates reply
+                const typingBody = {
+                  recipient: { id: senderId },
+                  sender_action: "typing_on",
+                }
+                fetch(
+                  `https://graph.instagram.com/v24.0/me/messages?access_token=${encodeURIComponent(user.access_token)}`,
+                  { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(typingBody) },
+                ).catch(() => {})
+
                 const aiRes = await fetch("https://triderai.vercel.app/api/chat", {
                   method: "POST",
                   headers: {
@@ -571,6 +581,12 @@ STRICT RULES — follow every single one:
                     temperature: 0.85,
                   }),
                 })
+
+                // Turn off typing indicator after AI responds
+                fetch(
+                  `https://graph.instagram.com/v24.0/me/messages?access_token=${encodeURIComponent(user.access_token)}`,
+                  { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recipient: { id: senderId }, sender_action: "typing_off" }) },
+                ).catch(() => {})
 
                 if (!aiRes.ok) {
                   console.log(`[v0] ❌ AI proxy error: ${aiRes.status}`)
