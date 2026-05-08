@@ -593,8 +593,43 @@ STRICT RULES — follow every single one:
                   continue
                 }
 
-                const aiData = await aiRes.json()
-                const aiReply = aiData.choices?.[0]?.message?.content?.trim()
+                // Parse SSE stream from proxy
+                let aiReply = ""
+                const contentType = aiRes.headers.get("content-type") || ""
+
+                if (contentType.includes("text/event-stream")) {
+                  const reader = aiRes.body?.getReader()
+                  if (reader) {
+                    const decoder = new TextDecoder()
+                    let buf = ""
+                    while (true) {
+                      const { done, value } = await reader.read()
+                      if (done) break
+                      buf += decoder.decode(value, { stream: true })
+                      const lines = buf.split("\n")
+                      buf = lines.pop() || ""
+                      for (const line of lines) {
+                        if (!line.startsWith("data: ")) continue
+                        const dataStr = line.slice(6).trim()
+                        if (dataStr === "[DONE]") continue
+                        try {
+                          const parsed = JSON.parse(dataStr)
+                          const chunk = parsed.choices?.[0]?.delta?.content
+                          if (chunk) aiReply += chunk
+                          // Also handle non-streaming format
+                          const full = parsed.choices?.[0]?.message?.content
+                          if (full && !aiReply) aiReply = full
+                        } catch { /* skip */ }
+                      }
+                    }
+                  }
+                } else {
+                  // Plain JSON fallback
+                  const aiData = await aiRes.json()
+                  aiReply = aiData.choices?.[0]?.message?.content?.trim() || ""
+                }
+
+                aiReply = aiReply.trim()
 
                 if (!aiReply) {
                   console.log("[v0] ❌ AI returned empty reply")
