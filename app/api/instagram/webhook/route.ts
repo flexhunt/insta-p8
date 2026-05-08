@@ -496,10 +496,67 @@ export async function POST(request: NextRequest) {
                   continue
                 }
 
-                const systemPrompt = `You are an AI assistant managing Instagram DMs for @${user.username}. 
-Reply naturally and helpfully to the user's message. Keep replies short (1-3 sentences), friendly, and in the same language as the user's message.
-Never mention you are an AI. Act like a real person running this Instagram account.
-If the user asks something you don't know, politely say you'll get back to them.`
+                // Fetch recent conversation history to match tone
+                let chatHistory: { role: string; content: string }[] = []
+                const { data: convData } = await supabase
+                  .from("conversations")
+                  .select("id")
+                  .eq("user_id", user.id)
+                  .eq("recipient_id", senderId)
+                  .single()
+
+                if (convData?.id) {
+                  const { data: recentMsgs } = await supabase
+                    .from("messages")
+                    .select("content, sender_id, is_from_instagram")
+                    .eq("conversation_id", convData.id)
+                    .order("created_at", { ascending: false })
+                    .limit(10)
+
+                  if (recentMsgs && recentMsgs.length > 0) {
+                    chatHistory = recentMsgs
+                      .reverse()
+                      .map((m: any) => ({
+                        role: m.is_from_instagram ? "user" : "assistant",
+                        content: m.content,
+                      }))
+                  }
+                }
+
+                // Build dynamic system prompt based on history
+                const hasHistory = chatHistory.length > 0
+                const userMsgs = chatHistory.filter(m => m.role === "user").map(m => m.content).join(" ")
+
+                const systemPrompt = hasHistory
+                  ? `You are ${user.username} — a real person replying to your own Instagram DMs.
+
+STRICT RULES — follow every single one:
+- You ARE the account owner. Never say "I'm an AI" or "I can't" or "as an AI".
+- Study the conversation history carefully. Match EXACTLY how this person talks — their language (Hindi/English/Hinglish), their energy level, punctuation style, whether they use emojis or not, how long their messages are.
+- If they write casually with typos, you reply casually too. If they write formally, match that.
+- Keep replies SHORT — max 1-2 sentences unless they asked something that needs more.
+- Never be overly enthusiastic or use cringe phrases like "Absolutely!", "Great question!", "Of course!".
+- Sound like a real busy person who replies quickly — not a customer service bot.
+- If you don't know something, say "hmm let me check" or "kal bata deta hoon" — whatever fits the vibe.
+- DO NOT use hashtags, bullet points, or formal formatting in DMs.
+- Detect language from user's messages: ${userMsgs.slice(0, 100)}`
+                  : `You are ${user.username} — a real person replying to your own Instagram DMs.
+
+STRICT RULES — follow every single one:
+- You ARE the account owner. Never say "I'm an AI" or "I can't".
+- No prior chat history exists, so use a confident, natural tone — professional but not stiff. Think: smart Gen-Z founder who's friendly but busy.
+- Keep it SHORT — 1-2 sentences max.
+- Reply in the SAME language the person used (Hindi/English/Hinglish). If mixed, match the mix.
+- NO cringe openers like "Absolutely!", "Sure thing!", "Great to hear!". Just reply normally.
+- NO hashtags, NO bullet points, NO robotic formatting.
+- If you don't know something, say something like "let me check and get back to you" — casual, real.
+- Vary your style slightly — don't always start with "Hey" or the same word.`
+
+                const aiMessages = [
+                  { role: "system", content: systemPrompt },
+                  ...chatHistory.slice(-6),
+                  { role: "user", content: triggerValue },
+                ]
 
                 const aiRes = await fetch("https://triderai.vercel.app/api/chat", {
                   method: "POST",
@@ -509,12 +566,9 @@ If the user asks something you don't know, politely say you'll get back to them.
                   },
                   body: JSON.stringify({
                     model: "openai/gpt-oss-120b",
-                    messages: [
-                      { role: "system", content: systemPrompt },
-                      { role: "user", content: triggerValue },
-                    ],
-                    max_tokens: 200,
-                    temperature: 0.7,
+                    messages: aiMessages,
+                    max_tokens: 150,
+                    temperature: 0.85,
                   }),
                 })
 
