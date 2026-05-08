@@ -527,8 +527,12 @@ export async function POST(request: NextRequest) {
                 const hasHistory = chatHistory.length > 0
                 const userMsgs = chatHistory.filter(m => m.role === "user").map(m => m.content).join(" ")
 
+                const accountContext = (user as any).ai_context
+                  ? `\n\nAbout this account (@${user.username}): ${(user as any).ai_context}`
+                  : `\n\nYou manage the Instagram account @${user.username}.`
+
                 const systemPrompt = hasHistory
-                  ? `You are ${user.username} — a real person replying to your own Instagram DMs.
+                  ? `You are ${user.username} — a real person replying to your own Instagram DMs.${accountContext}
 
 STRICT RULES — follow every single one:
 - You ARE the account owner. Never say "I'm an AI" or "I can't" or "as an AI".
@@ -540,7 +544,7 @@ STRICT RULES — follow every single one:
 - If you don't know something, say "hmm let me check" or "kal bata deta hoon" — whatever fits the vibe.
 - DO NOT use hashtags, bullet points, or formal formatting in DMs.
 - Detect language from user's messages: ${userMsgs.slice(0, 100)}`
-                  : `You are ${user.username} — a real person replying to your own Instagram DMs.
+                  : `You are ${user.username} — a real person replying to your own Instagram DMs.${accountContext}
 
 STRICT RULES — follow every single one:
 - You ARE the account owner. Never say "I'm an AI" or "I can't".
@@ -557,6 +561,16 @@ STRICT RULES — follow every single one:
                   ...chatHistory.slice(-6),
                   { role: "user", content: triggerValue },
                 ]
+
+                // Mark message as seen (read receipt)
+                fetch(
+                  `https://graph.instagram.com/v24.0/me/messages?access_token=${encodeURIComponent(user.access_token)}`,
+                  { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recipient: { id: senderId }, sender_action: "mark_seen" }) },
+                ).catch(() => {})
+
+                // Random human-like delay before typing (1.5s - 5s)
+                const preDelay = Math.floor(Math.random() * 3500) + 1500
+                await new Promise(r => setTimeout(r, preDelay))
 
                 // Send typing indicator before AI generates reply
                 const typingBody = {
