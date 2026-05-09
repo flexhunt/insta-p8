@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/github/stars/flexhunt/insta-p8?style=for-the-badge&color=facc15" alt="GitHub stars" />
+  <img src="https://img.shields.io/github/stars/ayuuxh2/insta-p8?style=for-the-badge&color=facc15" alt="GitHub stars" />
   <img src="https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js" alt="Next.js" />
   <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react" alt="React" />
   <img src="https://img.shields.io/badge/Supabase-Postgres-3ECF8E?style=for-the-badge&logo=supabase" alt="Supabase" />
@@ -245,7 +245,7 @@ lib/instagram-publishing.ts      Reels container/publish helpers
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/flexhunt/insta-p8.git
+git clone https://github.com/ayuuxh2/insta-p8.git
 cd insta-p8
 ```
 
