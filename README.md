@@ -73,7 +73,24 @@ If you are a developer or agency, self-host InstaAuto on your own Vercel + Supab
 
 ---
 
-## 💡 Why not just use ManyChat?
+## � Live Showcase
+
+Try a real Instagram automation demo before self-hosting.
+
+- **Instagram profile:** [@ayuuxh2](https://www.instagram.com/ayuuxh2/)
+- **Ice Breaker demo:** start a DM and tap/send `hello` → bot replies `heyyy`
+- **DM keyword demo:** send `hi` → bot replies `heyy`
+- **DM keyword demo:** send `link` → bot replies `hello`
+- **Comment-to-DM demo post:** [instagram.com/p/DTkUbO3EZqC](https://www.instagram.com/p/DTkUbO3EZqC/)
+- **Comment trigger:** comment `hiii` on the demo post to test comment-to-DM automation
+
+This showcase helps contributors and testers verify that the open-source Instagram DM automation, Ice Breakers, keyword replies, and comment-to-DM workflow are working in production.
+
+> Please use the demo responsibly. Do not spam the showcase profile or post.
+
+---
+
+## �💡 Why not just use ManyChat?
 
 ManyChat is great, but it is closed-source and paid. InstaAuto is for people who want ownership and flexibility.
 
