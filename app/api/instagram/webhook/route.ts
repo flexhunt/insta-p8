@@ -610,12 +610,14 @@ STRICT RULES — follow every single one:
                 // Parse SSE stream from proxy
                 let aiReply = ""
                 const contentType = aiRes.headers.get("content-type") || ""
+                console.log(`[v0] 🤖 AI response content-type: ${contentType}`)
 
                 if (contentType.includes("text/event-stream")) {
                   const reader = aiRes.body?.getReader()
                   if (reader) {
                     const decoder = new TextDecoder()
                     let buf = ""
+                    let chunkCount = 0
                     while (true) {
                       const { done, value } = await reader.read()
                       if (done) break
@@ -625,28 +627,58 @@ STRICT RULES — follow every single one:
                       for (const line of lines) {
                         if (!line.startsWith("data: ")) continue
                         const dataStr = line.slice(6).trim()
-                        if (dataStr === "[DONE]") continue
+                        if (dataStr === "[DONE]") {
+                          console.log(`[v0] 🤖 AI stream [DONE] received, chunks: ${chunkCount}`)
+                          continue
+                        }
                         try {
                           const parsed = JSON.parse(dataStr)
-                          const chunk = parsed.choices?.[0]?.delta?.content
+                          chunkCount++
+                          // Try multiple possible content locations
+                          const chunk = parsed.choices?.[0]?.delta?.content ||
+                                        parsed.choices?.[0]?.text ||
+                                        parsed.choices?.[0]?.delta?.text ||
+                                        parsed.content ||
+                                        parsed.delta?.content
                           if (chunk) aiReply += chunk
                           // Also handle non-streaming format
-                          const full = parsed.choices?.[0]?.message?.content
+                          const full = parsed.choices?.[0]?.message?.content ||
+                                       parsed.message?.content ||
+                                       parsed.content
                           if (full && !aiReply) aiReply = full
-                        } catch { /* skip */ }
+                        } catch (e) {
+                          console.log(`[v0] ⚠️ AI SSE parse error: ${e}, data: ${dataStr.slice(0, 100)}`)
+                        }
                       }
                     }
+                    console.log(`[v0] 🤖 AI SSE stream complete, total chunks: ${chunkCount}, reply length: ${aiReply.length}`)
                   }
                 } else {
                   // Plain JSON fallback
                   const aiData = await aiRes.json()
-                  aiReply = aiData.choices?.[0]?.message?.content?.trim() || ""
+                  console.log(`[v0] 🤖 AI JSON response keys: ${Object.keys(aiData).join(", ")}`)
+                  // Try multiple possible response formats
+                  aiReply = aiData.choices?.[0]?.message?.content?.trim() ||
+                            aiData.choices?.[0]?.text?.trim() ||
+                            aiData.message?.content?.trim() ||
+                            aiData.content?.trim() ||
+                            aiData.response?.trim() ||
+                            aiData.text?.trim() ||
+                            ""
                 }
 
                 aiReply = aiReply.trim()
 
                 if (!aiReply) {
-                  console.log("[v0] ❌ AI returned empty reply")
+                  console.log(`[v0] ❌ AI returned empty reply. Content-Type: ${contentType}`)
+                  // Debug: try to get raw response text for debugging
+                  try {
+                    const clonedRes = aiRes.clone()
+                    const rawText = await clonedRes.text()
+                    console.log(`[v0] 🔍 Raw AI response (first 500 chars): ${rawText.slice(0, 500)}`)
+                  } catch (e) {
+                    // Ignore clone errors
+                  }
                   continue
                 }
 
