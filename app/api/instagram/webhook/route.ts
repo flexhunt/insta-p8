@@ -591,7 +591,8 @@ STRICT RULES — follow every single one:
                   body: JSON.stringify({
                     model: "openai/gpt-oss-120b",
                     messages: aiMessages,
-                    max_tokens: 150,
+                    max_tokens: 1200,
+                    max_completion_tokens: 80,
                     temperature: 0.85,
                   }),
                 })
