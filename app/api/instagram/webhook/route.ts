@@ -589,10 +589,9 @@ STRICT RULES — follow every single one:
                     "Authorization": `Bearer ${gatewaySecret}`,
                   },
                   body: JSON.stringify({
-                    model: "openai/gpt-oss-120b",
+                    model: "meta-llama/llama-4-maverick-17b-128e-instruct",
                     messages: aiMessages,
-                    max_tokens: 1200,
-                    max_completion_tokens: 80,
+                    max_tokens: 120,
                     temperature: 0.85,
                   }),
                 })
