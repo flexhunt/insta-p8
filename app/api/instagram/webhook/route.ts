@@ -671,15 +671,23 @@ STRICT RULES — follow every single one:
 
                 if (!aiReply) {
                   console.log(`[v0] ❌ AI returned empty reply. Content-Type: ${contentType}`)
-                  // Debug: try to get raw response text for debugging
+                  // Debug: log the full choices array to understand why content is empty
                   try {
-                    const clonedRes = aiRes.clone()
-                    const rawText = await clonedRes.text()
-                    console.log(`[v0] 🔍 Raw AI response (first 500 chars): ${rawText.slice(0, 500)}`)
+                    console.log(`[v0] 🔍 choices[0]: ${JSON.stringify(aiData.choices?.[0])}`)
                   } catch (e) {
-                    // Ignore clone errors
+                    // Ignore
                   }
-                  continue
+                  // Fallback: send a generic reply instead of nothing
+                  const fallbackReplies = [
+                    "hanji batao",
+                    "bolo",
+                    "haan bhai",
+                    "ji",
+                    "sunao",
+                    "kya haal hai",
+                  ]
+                  aiReply = fallbackReplies[Math.floor(Math.random() * fallbackReplies.length)]
+                  console.log(`[v0] 🔄 Using fallback reply: "${aiReply}"`)
                 }
 
                 console.log(`[v0] 🤖 AI Reply: "${aiReply}"`)
