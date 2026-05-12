@@ -116,7 +116,12 @@ export async function POST(request: NextRequest) {
     if (upsertError) throw upsertError
 
     const response = NextResponse.json({ success: true, username, userId: loginUserId })
-    response.cookies.set("insta_session", JSON.stringify({ username, userId: loginUserId }), { path: "/" })
+    response.cookies.set("insta_session", JSON.stringify({ username, userId: loginUserId }), {
+      path: "/",
+      maxAge: expiresIn,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    })
     return response
 
   } catch (error: any) {
