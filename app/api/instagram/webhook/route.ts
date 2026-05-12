@@ -609,6 +609,7 @@ STRICT RULES — follow every single one:
 
                 // Parse SSE stream from proxy
                 let aiReply = ""
+                let aiData: any = null
                 const contentType = aiRes.headers.get("content-type") || ""
                 console.log(`[v0] 🤖 AI response content-type: ${contentType}`)
 
@@ -655,8 +656,9 @@ STRICT RULES — follow every single one:
                   }
                 } else {
                   // Plain JSON fallback
-                  const aiData = await aiRes.json()
+                  aiData = await aiRes.json()
                   console.log(`[v0] 🤖 AI JSON response keys: ${Object.keys(aiData).join(", ")}`)
+                  console.log(`[v0] 🔍 choices[0]: ${JSON.stringify(aiData.choices?.[0])}`)
                   // Try multiple possible response formats
                   aiReply = aiData.choices?.[0]?.message?.content?.trim() ||
                             aiData.choices?.[0]?.text?.trim() ||
@@ -670,13 +672,7 @@ STRICT RULES — follow every single one:
                 aiReply = aiReply.trim()
 
                 if (!aiReply) {
-                  console.log(`[v0] ❌ AI returned empty reply. Content-Type: ${contentType}`)
-                  // Debug: log the full choices array to understand why content is empty
-                  try {
-                    console.log(`[v0] 🔍 choices[0]: ${JSON.stringify(aiData.choices?.[0])}`)
-                  } catch (e) {
-                    // Ignore
-                  }
+                  console.log(`[v0] ❌ AI returned empty reply. finish_reason: ${aiData?.choices?.[0]?.finish_reason}`)
                   // Fallback: send a generic reply instead of nothing
                   const fallbackReplies = [
                     "hanji batao",
